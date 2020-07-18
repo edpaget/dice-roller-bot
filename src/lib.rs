@@ -6,7 +6,7 @@ pub mod discord;
 
 use std::env;
 
-pub fn main() {
+pub fn start_repl() {
     let args = env::args_os();
     if args.len() == 1 {
         println!(
