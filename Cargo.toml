@@ -9,3 +9,5 @@ edition = "2018"
 [dependencies]
 nom = "5"
 rand = "0.7.3"
+rustyline = "6.2.0"
+serenity = "0.8"

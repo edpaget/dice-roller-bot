@@ -1,11 +1,10 @@
 use nom::{
-    Err::Error,
     IResult,
     branch::alt,
     bytes::complete::{tag, take_while},
     character::complete::{char},
     combinator::map_res,
-    error::{ErrorKind},
+    multi::many0,
     sequence::{preceded, tuple},
 };
 
@@ -35,13 +34,19 @@ fn integer(input: &str) -> IResult<&str, Expression> {
 }
 
 fn term(input: &str) -> IResult<&str, Expression> {
-    let (input, (expr1, op, expr2)) = tuple((
+    let (input, (expr1, exprs)) = tuple((
         alt((dice_roll, integer)),
-        preceded(sp, alt((char('+'), char('-')))),
-        preceded(sp, alt((dice_roll, integer))),
+        many0(tuple((preceded(sp, alt((char('+'), char('-')))),
+                     preceded(sp, alt((dice_roll, integer)))))),
     ))(input)?;
 
-    Ok((input, Expression::Term(Box::new(expr1), Box::new(expr2), op)))
+    Ok((input, exprs.into_iter().fold(expr1, parse_term)))
+}
+
+fn parse_term(left_expr: Expression, next: (char, Expression)) -> Expression {
+    let (op, right_expr) = next;
+
+    Expression::Term(Box::new(left_expr), Box::new(right_expr), op)
 }
 
 fn dice_roll(input: &str) -> IResult<&str, Expression> {
@@ -53,7 +58,7 @@ fn dice_roll(input: &str) -> IResult<&str, Expression> {
     }))
 }
 
-fn roll(input: &str) -> IResult<&str, Expression> {
+pub fn roll(input: &str) -> IResult<&str, Expression> {
     let (input, expr) = preceded(
         tag("!roll"),
         preceded(sp, alt((term, dice_roll, integer)))
@@ -65,6 +70,10 @@ fn roll(input: &str) -> IResult<&str, Expression> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::{
+        Err::Error,
+        error::ErrorKind,
+    };
 
     #[test]
     fn test_term() {
@@ -85,6 +94,25 @@ mod tests {
             }),
             Box::new(Expression::Integer(1)),
             '+'
+        ));
+        assert_eq!(term("2d6 + 1 + 1d6 - 10").unwrap().1, Expression::Term(
+            Box::new(Expression::Term(
+                Box::new(Expression::Term(
+                    Box::new(Expression::DiceRoll {
+                        count: Box::new(Expression::Integer(2)),
+                        sides: Box::new(Expression::Integer(6))
+                    }),
+                    Box::new(Expression::Integer(1)),
+                    '+'
+                )),
+                Box::new(Expression::DiceRoll {
+                    count: Box::new(Expression::Integer(1)),
+                    sides: Box::new(Expression::Integer(6))
+                }),
+                '+'
+            )),
+            Box::new(Expression::Integer(10)),
+            '-'
         ));
     }
 

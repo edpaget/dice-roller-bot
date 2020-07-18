@@ -1,20 +1,38 @@
 use std::io::{self, Write};
-use parser::parse;
-use types::Expression;
-use eval;
+use crate::parser::roll;
+use crate::eval::eval;
+
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
 
 pub fn init() {
-    let mut environment = Environment::new();
+    let mut rl = Editor::<()>::new();
+
     loop {
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-        let result = format!(
-            "{}\n",
-            display(parse(&input[..]).and_then(
-                |expr| evaluate(&mut environment, expr),
-            ))
-        );
-        io::stdout().write(result.to_string().as_bytes()).unwrap();
-        io::stdout().flush().unwrap();
+        let readline = rl.readline(">> ");
+        match readline {
+            Ok(line) => {
+                rl.add_history_entry(line.as_str());
+                let mut rng = rand::thread_rng();
+                let result = format!(
+                    "{}\n",
+                    eval(&mut rng, Box::new(roll(&line[..]).unwrap().1))
+                );
+                io::stdout().write(result.to_string().as_bytes()).unwrap();
+                io::stdout().flush().unwrap();
+            },
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C");
+                break
+            },
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D");
+                break
+            },
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break
+            }
+        }
     }
 }

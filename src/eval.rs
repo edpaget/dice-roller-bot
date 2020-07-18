@@ -18,7 +18,7 @@ fn handle_op(left: u64, right: u64, op: char) -> u64 {
     }
 }
 
-fn eval(rng: &mut impl Rng, expr: Box<Expression>) -> u64 {
+pub fn eval(rng: &mut impl Rng, expr: Box<Expression>) -> u64 {
     match *expr {
         Expression::Integer(value) => value,
         Expression::Roll(expr) => eval(rng, expr),
