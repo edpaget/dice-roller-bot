@@ -44,6 +44,6 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: dice-roller
+          service: prod-dice-roller
           cluster: dice-roller-prod
           wait-for-service-stability: true
