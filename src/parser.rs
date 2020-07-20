@@ -1,17 +1,35 @@
 use nom::{
     IResult,
+    Err::Error,
     branch::alt,
-    bytes::complete::{tag, take_while},
+    bytes::complete::{tag, take_while, take_while1},
     character::complete::{char},
-    combinator::map_res,
+    combinator::{map_res, opt},
+    error::ErrorKind,
     multi::many0,
     sequence::{preceded, tuple},
 };
 
-use crate::types::Expression;
+use crate::types::{Expression, Op};
+
+// Parser Grammer
+//
+// Expression <- Roll | Set
+// Set <- Roll | Term | DiceRoll | Integer
+// Roll <- Term | DiceRoll | Integer | Variable
+// Term <- (DiceRoll | Integer | Variable) | (DiceRoll | Integer | Variable), Op
+// DiceRoll <- (Integer | Null), Integer
+// Integer <- [0-9]+
+// Variable <- [A-z][A-z0-9-]+
 
 fn from_decimal(input: &str) -> Result<u64, std::num::ParseIntError> {
     u64::from_str_radix(input, 10)
+}
+
+fn allowed_char(c: char) -> bool {
+    let chars = "!$; \t\r\n";
+
+    !chars.contains(c)
 }
 
 fn is_digit(c: char) -> bool {
@@ -24,6 +42,12 @@ fn sp(input: &str) -> IResult<&str, &str> {
     take_while(move |c| chars.contains(c))(input)
 }
 
+fn variable(input: &str) -> IResult<&str, Expression> {
+    let (input, variable) = take_while1(allowed_char)(input)?;
+
+    Ok((input, Expression::Variable(variable.to_string())))
+}
+
 fn integer(input: &str) -> IResult<&str, Expression> {
     let (input, number) = map_res(
         take_while(is_digit),
@@ -33,59 +57,112 @@ fn integer(input: &str) -> IResult<&str, Expression> {
     Ok((input, Expression::Integer(number)))
 }
 
+fn operation(input: &str) -> IResult<&str, Op> {
+    let (input, value) = alt((char('+'), char('-')))(input)?;
+
+    match value {
+        '+' => Ok((input, Op::Add)),
+        '-' => Ok((input, Op::Subtract)),
+        _ => Err(Error((input, ErrorKind::Char)))
+    }
+}
+
 fn term(input: &str) -> IResult<&str, Expression> {
     let (input, (expr1, exprs)) = tuple((
-        alt((dice_roll, integer)),
-        many0(tuple((preceded(sp, alt((char('+'), char('-')))),
-                     preceded(sp, alt((dice_roll, integer)))))),
+        sub_expression,
+        many0(tuple((preceded(sp, operation),
+                     preceded(sp, sub_expression)))),
     ))(input)?;
 
     Ok((input, exprs.into_iter().fold(expr1, parse_term)))
 }
 
-fn parse_term(left_expr: Expression, next: (char, Expression)) -> Expression {
+fn parse_term(left_expr: Expression, next: (Op, Expression)) -> Expression {
     let (op, right_expr) = next;
 
     Expression::Term(Box::new(left_expr), Box::new(right_expr), op)
 }
 
 fn dice_roll(input: &str) -> IResult<&str, Expression> {
-    let (input, (count, _, sides)) = tuple((integer, char('d'), integer))(input)?;
+    let (input, (count, _, sides)) = tuple((opt(integer), char('d'), integer))(input)?;
 
-    Ok((input, Expression::DiceRoll {
-        count: Box::new(count),
-        sides: Box::new(sides)
-    }))
+    if let Some(n) = count {
+        Ok((input, Expression::DiceRoll {
+            count: Box::new(n),
+            sides: Box::new(sides)
+        }))
+    } else {
+        Ok((input, Expression::DiceRoll {
+            count: Box::new(Expression::Integer(1)),
+            sides: Box::new(sides)
+        }))
+    }
 }
 
-pub fn roll(input: &str) -> IResult<&str, Expression> {
+fn sub_expression(input: &str) -> IResult<&str, Expression> {
+    alt((dice_roll, integer, variable))(input)
+}
+
+fn expression(input: &str) -> IResult<&str, Expression> {
+    alt((term, dice_roll, integer, variable))(input)
+}
+
+fn set(input: &str) -> IResult<&str, Expression> {
+    let (input, (var_name, expr)) = preceded(
+        tag("!set"),
+        tuple((
+            preceded(sp, variable),
+            preceded(sp, expression)
+        ))
+    )(input)?;
+
+    Ok((input, Expression::SetEnv(
+        Box::new(var_name),
+        Box::new(expr)
+    )))
+}
+
+fn roll(input: &str) -> IResult<&str, Expression> {
     let (input, expr) = preceded(
         tag("!roll"),
-        preceded(sp, alt((term, dice_roll, integer)))
+        preceded(sp, expression)
     )(input)?;
 
     Ok((input, Expression::Roll(Box::new(expr))))
 }
 
+pub fn command(input: &str) -> IResult<&str, Expression> {
+    alt((roll, set))(input)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::{
-        Err::Error,
-        error::ErrorKind,
-    };
+
+    #[test]
+    fn test_variable() {
+        assert_eq!(variable("test010").unwrap().1, Expression::Variable("test010".to_string()));
+        assert_eq!(
+            variable("another_one_again").unwrap().1,
+            Expression::Variable("another_one_again".to_string())
+        );
+        assert_eq!(
+            variable("!test_fails"),
+            Err(Error(("!test_fails", ErrorKind::TakeWhile1)))
+        );
+    }
 
     #[test]
     fn test_term() {
         assert_eq!(term("1 - 2").unwrap().1, Expression::Term(
             Box::new(Expression::Integer(1)),
             Box::new(Expression::Integer(2)),
-            '-'
+            Op::Subtract
         ));
         assert_eq!(term("1 + 2").unwrap().1, Expression::Term(
             Box::new(Expression::Integer(1)),
             Box::new(Expression::Integer(2)),
-            '+'
+            Op::Add
         ));
         assert_eq!(term("2d6 + 1").unwrap().1, Expression::Term(
             Box::new(Expression::DiceRoll {
@@ -93,7 +170,7 @@ mod tests {
                 sides: Box::new(Expression::Integer(6))
             }),
             Box::new(Expression::Integer(1)),
-            '+'
+            Op::Add
         ));
         assert_eq!(term("2d6 + 1 + 1d6 - 10").unwrap().1, Expression::Term(
             Box::new(Expression::Term(
@@ -103,16 +180,16 @@ mod tests {
                         sides: Box::new(Expression::Integer(6))
                     }),
                     Box::new(Expression::Integer(1)),
-                    '+'
+                    Op::Add
                 )),
                 Box::new(Expression::DiceRoll {
                     count: Box::new(Expression::Integer(1)),
                     sides: Box::new(Expression::Integer(6))
                 }),
-                '+'
+                Op::Add
             )),
             Box::new(Expression::Integer(10)),
-            '-'
+            Op::Subtract
         ));
     }
 
@@ -141,7 +218,35 @@ mod tests {
             count: Box::new(Expression::Integer(2)),
             sides: Box::new(Expression::Integer(8))
         })));
-        assert_eq!(dice_roll("x9d420"), Err(Error(("x9d420", ErrorKind::MapRes))))
+        assert_eq!(dice_roll("x9d420"), Err(Error(("x9d420", ErrorKind::Char))))
+    }
+
+    #[test]
+    fn test_set() {
+        assert_eq!(set("!set foo 1").unwrap().1, Expression::SetEnv(
+            Box::new(Expression::Variable("foo".to_string())),
+            Box::new(Expression::Integer(1))
+        ));
+        assert_eq!(set("!set bar 1d6").unwrap().1, Expression::SetEnv(
+            Box::new(Expression::Variable("bar".to_string())),
+            Box::new(Expression::DiceRoll {
+                count: Box::new(Expression::Integer(1)),
+                sides: Box::new(Expression::Integer(6))
+            })
+        ));
+        assert_eq!(set("!set foo-bar 1d6 + 1").unwrap().1, Expression::SetEnv(
+            Box::new(Expression::Variable("foo-bar".to_string())),
+            Box::new(
+                Expression::Term(
+                    Box::new(Expression::DiceRoll {
+                        count: Box::new(Expression::Integer(1)),
+                        sides: Box::new(Expression::Integer(6))
+                    }),
+                    Box::new(Expression::Integer(1)),
+                    Op::Add
+                )
+            )
+        ));
     }
 
     #[test]
@@ -163,9 +268,23 @@ mod tests {
                         sides: Box::new(Expression::Integer(6))
                     }),
                     Box::new(Expression::Integer(1)),
-                    '+'
+                    Op::Add
                 )
             )
+        ));
+    }
+
+    #[test]
+    fn test_command() {
+        assert_eq!(command("!roll 1").unwrap().1, Expression::Roll(
+            Box::new(Expression::Integer(1))
+        ));
+        assert_eq!(set("!set bar 1d6").unwrap().1, Expression::SetEnv(
+            Box::new(Expression::Variable("bar".to_string())),
+            Box::new(Expression::DiceRoll {
+                count: Box::new(Expression::Integer(1)),
+                sides: Box::new(Expression::Integer(6))
+            })
         ));
     }
 }

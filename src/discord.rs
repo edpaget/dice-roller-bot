@@ -5,17 +5,28 @@ use serenity::{
     prelude::*,
 };
 
-use crate::parser::roll;
+use crate::parser::command;
 use crate::eval::eval;
-
+use crate::types::Environment;
 
 struct Handler;
+
+impl TypeMapKey for Environment {
+    type Value = Environment;
+}
 
 impl EventHandler for Handler {
     fn message(&self, ctx: Context, msg: Message) {
         let mut rng = rand::thread_rng();
-        if let Ok((_, ast)) = roll(&msg.content) {
-            let response = format!("{}\n", eval(&mut rng, Box::new(ast)));
+        let mut data = ctx.data.write();
+        let env = data.get_mut::<Environment>().unwrap();
+        if let Ok((_, ast)) = command(&msg.content) {
+            let response = format!("{}\n", eval(
+                &msg.author.name,
+                env,
+                &mut rng,
+                Box::new(ast))
+            );
 
             if let Err(why) = msg.channel_id.say(&ctx.http, response) {
                 println!("Error sending message: {:?}", why);
@@ -23,7 +34,9 @@ impl EventHandler for Handler {
         }
     }
 
-    fn ready(&self, _: Context, ready: Ready) {
+    fn ready(&self, ctx: Context, ready: Ready) {
+        let mut data = ctx.data.write();
+        data.insert::<Environment>(Environment::new());
         println!("{} is connected!", ready.user.name);
     }
 }
