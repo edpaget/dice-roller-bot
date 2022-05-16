@@ -4,20 +4,35 @@ use rand::distributions::Uniform;
 
 use crate::types::{Environment, Expression, Op};
 
-fn handle_roll(rng: &mut impl Rng, count: u64, sides: u64) -> u64 {
-    let die = Uniform::new_inclusive(1, sides);
-
-    rng.sample_iter(&die).take(count.try_into().unwrap()).sum()
+enum EvaluatorOutput<'a> {
+    RollResult(u64, &'a str),
+    SetResult(&'a str)
 }
 
-fn handle_op(left: u64, right: u64, op: Op) -> u64 {
+fn handle_roll(rng: &mut impl Rng, count: u64, sides: u64) -> EvaluatorOutput {
+    let die = Uniform::new_inclusive(1, sides);
+    let rolls = rng.sample_iter(&die).take(count.try_into().unwrap());
+    let roll_result = &rolls.map( |roll| roll.to_string() ).collect::<Vec<String>>().join(" + ");
+
+    EvaluatorOutput::RollResult(
+        rolls.sum(),
+        format!("roll({})", roll_result)
+    )
+}
+
+fn handle_op(left: EvaluatorOutput, right: EvaluatorOutput, op: Op) -> u64 {
     match op {
         Op::Subtract => left - right,
         Op::Add => left + right,
     }
 }
 
-pub fn eval(user: &String, env: &mut Environment, rng: &mut impl Rng, expr: Box<Expression>) -> u64 {
+pub fn eval(
+    user: &String,
+    env: &mut Environment,
+    rng: &mut impl Rng,
+    expr: Box<Expression>
+) -> Result<EvaluatorOutput, &str>{
     match *expr {
         Expression::Integer(value) => value,
         Expression::Roll(expr) => eval(user, env, rng, expr),
@@ -30,19 +45,22 @@ pub fn eval(user: &String, env: &mut Environment, rng: &mut impl Rng, expr: Box<
             let left_val = eval(user, env, rng, left_expr);
             let right_val = eval(user, env, rng, right_expr);
 
-            handle_roll(rng, left_val, right_val)
+            Ok(handle_roll(rng, left_val, right_val))
         },
-        Expression::Variable(variable_name) => eval(
-            user,
-            env,
-            rng,
-            env.get(user, variable_name).unwrap()
-        ),
+        Expression::Variable(variable_name) => {
+            if let Some(variable_expr) = env.get(user, variable_name) {
+                eval(user, env, rng, variable_expr)
+            } else {
+                Err("Can't find variable")
+            }
+        }
         Expression::SetEnv(variable, expr) => {
             if let Expression::Variable(var_name) = *variable {
                 env.add(user, var_name, expr);
+                Ok(EvaluatorOutput::SetResult(format!("Set {}", var_name)))
+            } else {
+                Err("Failed to set.")
             }
-            0
         }
     }
 }

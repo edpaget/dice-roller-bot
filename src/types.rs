@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::result::Result;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Op{
@@ -39,3 +40,5 @@ impl Environment {
         self
     }
 }
+
+pub type EvaluatorResult<'a> = Result<(&'a str, Option<&'a str>), &'a str>;
