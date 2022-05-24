@@ -5,28 +5,28 @@ use serenity::{
     prelude::*,
 };
 
+use crate::{environments::hash_map_environment::HashMapEnvironment, types::Visitor};
 use crate::parser::command;
-use crate::eval::eval;
-use crate::types::Environment;
+use crate::eval::EvalVisitor;
 
 struct Handler;
 
-impl TypeMapKey for Environment {
-    type Value = Environment;
+impl TypeMapKey for HashMapEnvironment {
+    type Value = HashMapEnvironment;
 }
 
 impl EventHandler for Handler {
     fn message(&self, ctx: Context, msg: Message) {
         let mut rng = rand::thread_rng();
         let mut data = ctx.data.write();
-        let env = data.get_mut::<Environment>().unwrap();
+        let env = data.get_mut::<HashMapEnvironment>().unwrap();
         if let Ok((_, ast)) = command(&msg.content) {
-            let response = format!("{}\n", eval(
-                &msg.author.name,
+            let mut visitor = EvalVisitor{
+                rng: &mut rng,
                 env,
-                &mut rng,
-                Box::new(ast))
-            );
+                user: &msg.author.name,
+            };
+            let response = format!("{}\n", visitor.visit_statement(Box::new(ast)).unwrap());
 
             if let Err(why) = msg.channel_id.say(&ctx.http, response) {
                 println!("Error sending message: {:?}", why);
@@ -36,7 +36,7 @@ impl EventHandler for Handler {
 
     fn ready(&self, ctx: Context, ready: Ready) {
         let mut data = ctx.data.write();
-        data.insert::<Environment>(Environment::new());
+        data.insert::<HashMapEnvironment>(HashMapEnvironment::new());
         println!("{} is connected!", ready.user.name);
     }
 }

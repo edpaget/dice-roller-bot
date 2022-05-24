@@ -2,6 +2,7 @@ mod types;
 mod parser;
 mod eval;
 mod repl;
+mod environments;
 pub mod discord;
 
 use std::env;
