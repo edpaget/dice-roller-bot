@@ -12,11 +12,12 @@ pub fn init() {
     let mut rl = Editor::<()>::new();
     let mut env = HashMapEnvironment::new();
     let mut rng = rand::thread_rng();
-    let mut visitor = EvalVisitor{
-        rng: &mut rng,
-        env: &mut env,
-        user: &String::from("User"),
-    };
+    let user = String::from("User");
+    let mut visitor = EvalVisitor::new(
+        &mut rng,
+        &mut env,
+        &user,
+    );
 
     loop {
         let readline = rl.readline(">> ");

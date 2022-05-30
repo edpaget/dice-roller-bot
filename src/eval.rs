@@ -23,6 +23,16 @@ pub struct EvalVisitor<'a, T: Rng + ?Sized> {
     user: &'a String,
 }
 
+impl <'a, T: Rng> EvalVisitor<'a, T> {
+    pub fn new(rng: &'a mut T, env: &'a mut dyn Environment, user: &'a String) -> Self {
+        EvalVisitor{
+            rng,
+            env,
+            user,
+        }
+    }
+}
+
 impl <'a, T: Rng> Visitor<Option<i64>> for EvalVisitor<'a, T> {
     fn visit_expression(&mut self, expr: Box<Expression>) -> Option<i64> {
         match *expr {
@@ -65,11 +75,12 @@ mod tests {
     fn test_eval() {
         let mut rng = StepRng::new(0, 1);
         let mut env = HashMapEnvironment::new();
-        let mut visitor = EvalVisitor{
-            rng: &mut rng,
-            env: &mut env,
-            user: &String::from("user"),
-        };
+        let user = String::from("user");
+        let mut visitor = EvalVisitor::new(
+            &mut rng,
+            &mut env,
+            &user,
+        );
         assert_eq!(visitor.visit_expression(Box::new(Expression::Integer(1))).unwrap(), 1);
         assert_eq!(visitor.visit_expression(
             Box::new(Expression::Term(

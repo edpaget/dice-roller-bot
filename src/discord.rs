@@ -21,11 +21,11 @@ impl EventHandler for Handler {
         let mut data = ctx.data.write();
         let env = data.get_mut::<HashMapEnvironment>().unwrap();
         if let Ok((_, ast)) = command(&msg.content) {
-            let mut visitor = EvalVisitor{
-                rng: &mut rng,
+            let mut visitor = EvalVisitor::new(
+                &mut rng,
                 env,
-                user: &msg.author.name,
-            };
+                &msg.author.name,
+            );
             let response = format!("{}\n", visitor.visit_statement(Box::new(ast)).unwrap());
 
             if let Err(why) = msg.channel_id.say(&ctx.http, response) {

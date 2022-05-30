@@ -118,10 +118,13 @@ fn set_value(input: &str) -> IResult<&str, Statement> {
         ))
     )(input)?;
 
-    Ok((input, Statement::SetValue(
-        var_name,
-        Box::new(expr)
-    )))
+    match variable {
+        Expression::Variable(var_name) => Ok((input, Statement::SetValue(
+            var_name,
+            Box::new(expr)
+        ))),
+        _ => Err(Error((input, ErrorKind::Tag))),
+    }
 }
 
 fn roll(input: &str) -> IResult<&str, Statement> {

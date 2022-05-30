@@ -26,7 +26,7 @@ impl Environment for HashMapEnvironment {
         } else {
             let mut new_user_map = HashMap::new();
             new_user_map.insert(var_name.clone(), result);
-            &self.env.insert(user_name.to_string(), new_user_map);
+            self.env.insert(user_name.to_string(), new_user_map);
         }
     }
 }
