@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::{convert::TryInto, fmt::Display};
 use rand::Rng;
 use rand::distributions::Uniform;
 
@@ -17,14 +17,14 @@ fn handle_op(left: i64, right: i64, op: Op) -> i64 {
     }
 }
 
-pub struct EvalVisitor<'a, T: Rng + ?Sized> {
+pub struct EvalVisitor<'a, T: Rng + ?Sized, E: Environment + Display> {
     rng: &'a mut T,
-    env: &'a mut dyn Environment,
+    env: &'a mut E,
     user: &'a String,
 }
 
-impl <'a, T: Rng> EvalVisitor<'a, T> {
-    pub fn new(rng: &'a mut T, env: &'a mut dyn Environment, user: &'a String) -> Self {
+impl <'a, T: Rng, E: Environment + Display> EvalVisitor<'a, T, E> {
+    pub fn new(rng: &'a mut T, env: &'a mut E, user: &'a String) -> Self {
         EvalVisitor{
             rng,
             env,
@@ -33,7 +33,7 @@ impl <'a, T: Rng> EvalVisitor<'a, T> {
     }
 }
 
-impl <'a, T: Rng> Visitor<Option<i64>> for EvalVisitor<'a, T> {
+impl <'a, T: Rng, E: Environment + Display> Visitor<Option<String>, Option<i64>> for EvalVisitor<'a, T, E> {
     fn visit_expression(&mut self, expr: Box<Expression>) -> Option<i64> {
         match *expr {
             Expression::Integer(value) => Some(value),
@@ -53,13 +53,15 @@ impl <'a, T: Rng> Visitor<Option<i64>> for EvalVisitor<'a, T> {
             )
         }
     }
-    fn visit_statement(&mut self, stmt: Box<Statement>) -> Option<i64> {
+    fn visit_statement(&mut self, stmt: Box<Statement>) -> Option<String> {
         match *stmt {
-            Statement::Roll(expr) => self.visit_expression(expr),
+            Statement::PrintEnv => Some(format!("{}", self.env)),
+            Statement::Roll(expr) => Some(format!("{}", self.visit_expression(expr).unwrap())),
             Statement::SetValue(variable, expr) => {
                 let value = Expression::Integer(self.visit_expression(expr).unwrap());
+                let return_string = format!("{:?} => {:?}", variable, value);
                 self.env.set(self.user, &variable, Box::new(value));
-                return None;
+                return Some(return_string);
             }
         }
     }
@@ -99,7 +101,7 @@ mod tests {
                     Op::Add
                 )
             )
-        ))).unwrap(), 2);
+        ))).unwrap(), "2");
         assert_eq!(visitor.visit_expression(
             Box::new(Expression::DiceRoll {
                 count: Box::new(Expression::Integer(1231239)),

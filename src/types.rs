@@ -2,6 +2,7 @@
 pub enum Statement {
     Roll(Box<Expression>),
     SetValue(String, Box<Expression>),
+    PrintEnv,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -23,7 +24,7 @@ pub trait Environment {
     fn set(&mut self, user_name: &String, var_name: &String, value: Box<Expression>);
 }
 
-pub trait Visitor<T> {
-    fn visit_statement(&mut self, stmt: Box<Statement>) -> T;
-    fn visit_expression(&mut self, expr: Box<Expression>) -> T;
+pub trait Visitor<S, E> {
+    fn visit_statement(&mut self, stmt: Box<Statement>) -> S;
+    fn visit_expression(&mut self, expr: Box<Expression>) -> E;
 }

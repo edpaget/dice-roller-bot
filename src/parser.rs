@@ -109,9 +109,15 @@ fn expression(input: &str) -> IResult<&str, Expression> {
     alt((term, dice_roll, integer, variable))(input)
 }
 
+fn print_env(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("print_env")(input)?;
+
+    Ok((input, Statement::PrintEnv))
+}
+
 fn set_value(input: &str) -> IResult<&str, Statement> {
     let (input, (variable, expr)) = preceded(
-        tag("!set"),
+        tag("set"),
         tuple((
             preceded(sp, variable),
             preceded(sp, expression)
@@ -129,7 +135,7 @@ fn set_value(input: &str) -> IResult<&str, Statement> {
 
 fn roll(input: &str) -> IResult<&str, Statement> {
     let (input, expr) = preceded(
-        tag("!roll"),
+        tag("roll"),
         preceded(sp, expression)
     )(input)?;
 
@@ -137,7 +143,7 @@ fn roll(input: &str) -> IResult<&str, Statement> {
 }
 
 pub fn command(input: &str) -> IResult<&str, Statement> {
-    alt((roll, set_value))(input)
+   preceded(char('!'), alt((roll, set_value, print_env)))(input)
 }
 
 #[cfg(test)]
@@ -228,18 +234,18 @@ mod tests {
 
     #[test]
     fn test_set() {
-        assert_eq!(set_value("!set foo 1").unwrap().1, Statement::SetValue(
+        assert_eq!(set_value("set foo 1").unwrap().1, Statement::SetValue(
             "foo".to_string(),
             Box::new(Expression::Integer(1))
         ));
-        assert_eq!(set_value("!set bar 1d6").unwrap().1, Statement::SetValue(
+        assert_eq!(set_value("set bar 1d6").unwrap().1, Statement::SetValue(
             "bar".to_string(),
             Box::new(Expression::DiceRoll {
                 count: Box::new(Expression::Integer(1)),
                 sides: Box::new(Expression::Integer(6))
             })
         ));
-        assert_eq!(set_value("!set foo-bar 1d6 + 1").unwrap().1, Statement::SetValue(
+        assert_eq!(set_value("set foo-bar 1d6 + 1").unwrap().1, Statement::SetValue(
             "foo-bar".to_string(),
             Box::new(
                 Expression::Term(
@@ -256,16 +262,16 @@ mod tests {
 
     #[test]
     fn test_roll() {
-        assert_eq!(roll("!roll 1").unwrap().1, Statement::Roll(
+        assert_eq!(roll("roll 1").unwrap().1, Statement::Roll(
             Box::new(Expression::Integer(1))
         ));
-        assert_eq!(roll("!roll 1d6").unwrap().1, Statement::Roll(
+        assert_eq!(roll("roll 1d6").unwrap().1, Statement::Roll(
             Box::new(Expression::DiceRoll {
                 count: Box::new(Expression::Integer(1)),
                 sides: Box::new(Expression::Integer(6))
             })
         ));
-        assert_eq!(roll("!roll 1d6 + 1").unwrap().1, Statement::Roll(
+        assert_eq!(roll("roll 1d6 + 1").unwrap().1, Statement::Roll(
             Box::new(
                 Expression::Term(
                     Box::new(Expression::DiceRoll {
@@ -281,6 +287,7 @@ mod tests {
 
     #[test]
     fn test_command() {
+        assert_eq!(command("!print_env").unwrap().1, Statement::PrintEnv);
         assert_eq!(command("!roll 1").unwrap().1, Statement::Roll(
             Box::new(Expression::Integer(1))
         ));

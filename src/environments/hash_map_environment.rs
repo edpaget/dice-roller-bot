@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use core::fmt;
+use std::{collections::HashMap, fmt::Display};
 
 use crate::types::{Environment, Expression};
 
@@ -28,5 +29,11 @@ impl Environment for HashMapEnvironment {
             new_user_map.insert(var_name.clone(), result);
             self.env.insert(user_name.to_string(), new_user_map);
         }
+    }
+}
+
+impl Display for HashMapEnvironment {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.env)
     }
 }
