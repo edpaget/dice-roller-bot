@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 nom = "5"
 rand = { version = "0.8.5", features = ["std_rng"] }
-rustyline = "6.2.0"
+rustyline = "9.1.2"
 serenity = "0.11"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
