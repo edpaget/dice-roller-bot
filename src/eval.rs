@@ -48,9 +48,8 @@ impl <'a, T: Rng, E: Environment + Display> Visitor<Option<String>, Option<i64>>
 
                 Some(handle_roll(self.rng, left_val, right_val))
             },
-            Expression::Variable(variable_name) => (
+            Expression::Variable(variable_name) =>
                 self.visit_expression(self.env.get(self.user, &variable_name).unwrap())
-            )
         }
     }
     fn visit_statement(&mut self, stmt: Box<Statement>) -> Option<String> {
