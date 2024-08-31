@@ -6,7 +6,7 @@ pub enum Statement {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Op{
+pub enum Op {
     Add,
     Subtract,
 }
@@ -15,7 +15,10 @@ pub enum Op{
 pub enum Expression {
     Variable(String),
     Integer(i64),
-    DiceRoll { count: Box<Expression>, sides: Box<Expression> },
+    DiceRoll {
+        count: Box<Expression>,
+        sides: Box<Expression>,
+    },
     Term(Box<Expression>, Box<Expression>, Op),
 }
 
