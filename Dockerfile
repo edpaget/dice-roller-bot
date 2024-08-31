@@ -10,6 +10,7 @@ COPY Cargo.toml Cargo.lock ./
 RUN cargo build --release
 
 COPY src ./src
+COPY locales ./locales
 RUN cargo install --target x86_64-unknown-linux-musl --path .
 
 FROM scratch
