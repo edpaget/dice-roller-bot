@@ -3,6 +3,7 @@ pub enum Statement {
     Roll(Box<Expression>),
     SetValue(String, Box<Expression>),
     PrintEnv,
+    Help,
 }
 
 #[derive(Debug, PartialEq, Clone)]

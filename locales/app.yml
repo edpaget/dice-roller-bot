@@ -1,0 +1,19 @@
+_version: 2
+help-general:
+    en: |
+        Usage:
+            Commands:
+                !help - print this message
+                !roll [dice-expression] - evaluate a dice expression
+                !set [var-name] [dice-expression] - set the value of an evaluted dice expression to the var-name
+                !print-env - display saved values
+            Dice Expression:
+                Describes some dice to roll. You can use the format [number of dice to roll]d[sides on each dice].
+
+                Multiple dice can be added or subtracted and you can have constant numbers in these expressions.
+
+                Examples:
+
+                1d6       - roll one six sided dice
+                2d6 + 1d8 - roll two size sided dice and add one eight sided dice
+                10 - 1d4  - substract the roll of one four sided dices from 10
