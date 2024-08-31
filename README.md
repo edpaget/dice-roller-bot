@@ -1,3 +1,3 @@
 # dice-roller-bot
 
-![Rust](https://github.com/edpaget/dice-roller-bot/workflows/Rust/badge.svg)
+[![Pull Request Workflow](https://github.com/edpaget/dice-roller-bot/actions/workflows/rust.yml/badge.svg)](https://github.com/edpaget/dice-roller-bot/actions/workflows/rust.yml)
