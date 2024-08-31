@@ -10,6 +10,6 @@ edition = "2018"
 aws-sdk-dynamodb = "0.24.0"
 nom = "7"
 rand = { version = "0.8.5", features = ["std_rng"] }
-rustyline = "9.1.2"
+rustyline = "14.0.0"
 serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
 tokio = { version = "1.26", features = ["macros", "rt-multi-thread"] }
