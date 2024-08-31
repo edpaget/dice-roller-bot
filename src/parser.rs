@@ -19,8 +19,9 @@ use crate::types::{Expression, Op, Statement};
 // Roll <- Expression
 // Help <- ()
 //
-// Expression <- Term | DiceRoll | Integer | Variable
+// Expression <- Term | DiceRollTemplate | DiceRoll | Integer | Variable
 // Term <- (DiceRoll | Integer | Variable) | (DiceRoll | Integer | Variable), Op
+// DiceRollTemplate <- (...Variable, => ,...Expression)
 // DiceRoll <- (Integer | Null), Integer
 // Integer <- [0-9]+
 // Variable <- [A-z][A-z0-9-]+
