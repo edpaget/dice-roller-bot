@@ -21,8 +21,7 @@ impl Environment for HashMapEnvironment {
         self.env
             .get(user_name)
             .unwrap()
-            .get(var_name)
-            .map(|e| e.clone())
+            .get(var_name).cloned()
     }
 
     fn set(&mut self, user_name: &String, var_name: &String, result: Box<Expression>) {

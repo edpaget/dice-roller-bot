@@ -62,7 +62,7 @@ impl<'a, T: Rng, E: Environment + Display> Visitor<Option<String>, Option<i64>>
                 let value = Expression::Integer(self.visit_expression(expr).unwrap());
                 let return_string = format!("{:?} => {:?}", variable, value);
                 self.env.set(self.user, &variable, Box::new(value));
-                return Some(return_string);
+                Some(return_string)
             }
         }
     }
