@@ -2,13 +2,14 @@ use std::env;
 
 use rand::SeedableRng;
 use serenity::{
+    async_trait,
     model::{channel::Message, gateway::Ready},
-    prelude::*, async_trait,
+    prelude::*,
 };
 
-use crate::{environments::hash_map_environment::HashMapEnvironment, types::Visitor};
-use crate::parser::command;
 use crate::eval::EvalVisitor;
+use crate::parser::command;
+use crate::{environments::hash_map_environment::HashMapEnvironment, types::Visitor};
 
 struct Handler;
 
@@ -23,11 +24,7 @@ impl EventHandler for Handler {
         let mut data = ctx.data.write().await;
         let env = data.get_mut::<HashMapEnvironment>().unwrap();
         if let Ok((_, ast)) = command(&msg.content) {
-            let mut visitor = EvalVisitor::new(
-                &mut rng,
-                env,
-                &msg.author.name,
-            );
+            let mut visitor = EvalVisitor::new(&mut rng, env, &msg.author.name);
             let response = format!("{}\n", visitor.visit_statement(Box::new(ast)).unwrap());
 
             if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
@@ -45,13 +42,15 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 pub async fn main() {
-    let token = env::var("DISCORD_TOKEN")
-        .expect("Expected a token in the environment");
+    let token = env::var("DISCORD_TOKEN").expect("Expected a token in the environment");
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let mut client = Client::builder(&token, intents).event_handler(Handler).await.expect("Err creating client");
+    let mut client = Client::builder(&token, intents)
+        .event_handler(Handler)
+        .await
+        .expect("Err creating client");
 
     if let Err(why) = client.start().await {
         println!("Client error: {:?}", why);

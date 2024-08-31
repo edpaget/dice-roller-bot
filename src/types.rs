@@ -6,7 +6,7 @@ pub enum Statement {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Op{
+pub enum Op {
     Add,
     Subtract,
 }
@@ -15,13 +15,16 @@ pub enum Op{
 pub enum Expression {
     Variable(String),
     Integer(i64),
-    DiceRoll { count: Box<Expression>, sides: Box<Expression> },
+    DiceRoll {
+        count: Box<Expression>,
+        sides: Box<Expression>,
+    },
     Term(Box<Expression>, Box<Expression>, Op),
 }
 
 pub trait Environment {
-    fn get(&self, user_name: &String, var_name: &String) -> Option<Box<Expression>>;
-    fn set(&mut self, user_name: &String, var_name: &String, value: Box<Expression>);
+    fn get(&self, user_name: &str, var_name: &str) -> Option<Box<Expression>>;
+    fn set(&mut self, user_name: &str, var_name: &str, value: Box<Expression>);
 }
 
 pub trait Visitor<S, E> {
