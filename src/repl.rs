@@ -6,10 +6,10 @@ use crate::parser::command;
 use crate::types::Visitor;
 
 use rustyline::error::ReadlineError;
-use rustyline::Editor;
+use rustyline::{DefaultEditor, Result};
 
-pub fn init() {
-    let mut rl = Editor::<()>::new();
+pub fn init() -> Result<()> {
+    let mut rl = DefaultEditor::new()?;
     let mut env = HashMapEnvironment::new();
     let mut rng = rand::thread_rng();
     let user = String::from("User");
@@ -20,7 +20,7 @@ pub fn init() {
 
         match readline {
             Ok(line) => {
-                rl.add_history_entry(line.as_str());
+                let _ = rl.add_history_entry(line.as_str());
                 let result = match command(&line[..]) {
                     Ok((_, stmt)) => {
                         format!("{}\n", visitor.visit_statement(Box::new(stmt)).unwrap())
@@ -46,4 +46,5 @@ pub fn init() {
             }
         }
     }
+    Ok(())
 }
