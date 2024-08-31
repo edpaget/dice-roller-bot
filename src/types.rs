@@ -23,8 +23,8 @@ pub enum Expression {
 }
 
 pub trait Environment {
-    fn get(&self, user_name: &String, var_name: &String) -> Option<Box<Expression>>;
-    fn set(&mut self, user_name: &String, var_name: &String, value: Box<Expression>);
+    fn get(&self, user_name: &str, var_name: &str) -> Option<Box<Expression>>;
+    fn set(&mut self, user_name: &str, var_name: &str, value: Box<Expression>);
 }
 
 pub trait Visitor<S, E> {

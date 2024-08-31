@@ -17,19 +17,16 @@ impl HashMapEnvironment {
 }
 
 impl Environment for HashMapEnvironment {
-    fn get(&self, user_name: &String, var_name: &String) -> Option<Box<Expression>> {
-        self.env
-            .get(user_name)
-            .unwrap()
-            .get(var_name).cloned()
+    fn get(&self, user_name: &str, var_name: &str) -> Option<Box<Expression>> {
+        self.env.get(user_name).unwrap().get(var_name).cloned()
     }
 
-    fn set(&mut self, user_name: &String, var_name: &String, result: Box<Expression>) {
+    fn set(&mut self, user_name: &str, var_name: &str, result: Box<Expression>) {
         if let Some(user_map) = self.env.get_mut(user_name) {
-            user_map.insert(var_name.clone(), result);
+            user_map.insert(var_name.to_string(), result);
         } else {
             let mut new_user_map = HashMap::new();
-            new_user_map.insert(var_name.clone(), result);
+            new_user_map.insert(var_name.to_string(), result);
             self.env.insert(user_name.to_string(), new_user_map);
         }
     }

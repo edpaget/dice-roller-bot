@@ -25,7 +25,7 @@ use crate::types::{Expression, Op, Statement};
 // Variable <- [A-z][A-z0-9-]+
 
 fn from_decimal(input: &str) -> Result<i64, std::num::ParseIntError> {
-    i64::from_str_radix(input, 10)
+    input.parse::<i64>()
 }
 
 fn allowed_char(c: char) -> bool {

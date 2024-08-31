@@ -27,7 +27,9 @@ pub fn init() {
                     }
                     Err(err) => format!("{}\n", err),
                 };
-                io::stdout().write(result.to_string().as_bytes()).unwrap();
+                io::stdout()
+                    .write_all(result.to_string().as_bytes())
+                    .unwrap();
                 io::stdout().flush().unwrap();
             }
             Err(ReadlineError::Interrupted) => {
