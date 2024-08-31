@@ -37,7 +37,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
-    - name: Run tests
+    - name: Run fmt
       run: cargo fmt -- --check
 
   lint:
@@ -47,5 +47,5 @@ jobs:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
     - uses: Swatinem/rust-cache@v2
-    - name: Run tests
+    - name: Run Clippy
       run: cargo clippy -- -D warnings
