@@ -7,6 +7,8 @@ mod types;
 
 use std::env;
 
+rust_i18n::i18n!("locales");
+
 pub fn start_repl() {
     let args = env::args_os();
     if args.len() == 1 {

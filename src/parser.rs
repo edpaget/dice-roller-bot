@@ -14,9 +14,10 @@ use crate::types::{Expression, Op, Statement};
 
 // Parser Grammer
 //
-// Statement <- Roll | SetValue
+// Statement <- Roll | SetValue | Help
 // SetValue <- (Variable, Expression)
 // Roll <- Expression
+// Help <- ()
 //
 // Expression <- Term | DiceRoll | Integer | Variable
 // Term <- (DiceRoll | Integer | Variable) | (DiceRoll | Integer | Variable), Op
@@ -118,7 +119,7 @@ fn expression(input: &str) -> IResult<&str, Expression> {
 }
 
 fn print_env(input: &str) -> IResult<&str, Statement> {
-    let (input, _) = tag("print_env")(input)?;
+    let (input, _) = tag("print-env")(input)?;
 
     Ok((input, Statement::PrintEnv))
 }
@@ -146,8 +147,14 @@ fn roll(input: &str) -> IResult<&str, Statement> {
     Ok((input, Statement::Roll(Box::new(expr))))
 }
 
+fn help(input: &str) -> IResult<&str, Statement> {
+    let (input, _) = tag("help")(input)?;
+
+    Ok((input, Statement::Help))
+}
+
 pub fn command(input: &str) -> IResult<&str, Statement> {
-    preceded(char('!'), alt((roll, set_value, print_env)))(input)
+    preceded(char('!'), alt((roll, set_value, print_env, help)))(input)
 }
 
 #[cfg(test)]
@@ -350,7 +357,8 @@ mod tests {
 
     #[test]
     fn test_command() {
-        assert_eq!(command("!print_env").unwrap().1, Statement::PrintEnv);
+        assert_eq!(command("!print-env").unwrap().1, Statement::PrintEnv);
+        assert_eq!(command("!help").unwrap().1, Statement::Help);
         assert_eq!(
             command("!roll 1").unwrap().1,
             Statement::Roll(Box::new(Expression::Integer(1)))

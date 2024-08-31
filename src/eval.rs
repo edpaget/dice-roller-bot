@@ -1,5 +1,6 @@
 use rand::distributions::Uniform;
 use rand::Rng;
+use rust_i18n::t;
 use std::{convert::TryInto, fmt::Display};
 
 use crate::types::{Environment, Expression, Op, Statement, Visitor};
@@ -56,6 +57,7 @@ impl<'a, T: Rng, E: Environment + Display> Visitor<Option<String>, Option<i64>>
     }
     fn visit_statement(&mut self, stmt: Box<Statement>) -> Option<String> {
         match *stmt {
+            Statement::Help => Some(t!("help-general").to_string()),
             Statement::PrintEnv => Some(format!("{}", self.env)),
             Statement::Roll(expr) => Some(format!("{}", self.visit_expression(expr).unwrap())),
             Statement::SetValue(variable, expr) => {
