@@ -16,6 +16,14 @@ pub enum Op {
 pub enum Expression {
     Variable(String),
     Integer(i64),
+    DiceRollTemplate {
+        args: Vec<String>,
+        expressions: Vec<Expression>,
+    },
+    DiceRollTemplateCall {
+        template_expression: Box<Expression>,
+        args: Vec<Expression>,
+    },
     DiceRoll {
         count: Box<Expression>,
         sides: Box<Expression>,

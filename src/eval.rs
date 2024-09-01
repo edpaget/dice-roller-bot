@@ -1,20 +1,45 @@
 use rand::distributions::Uniform;
 use rand::Rng;
 use rust_i18n::t;
-use std::{convert::TryInto, fmt::Display};
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt::Display,
+};
 
 use crate::types::{Environment, Expression, Op, Statement, Visitor};
 
-fn handle_roll(rng: &mut impl Rng, count: i64, sides: i64) -> i64 {
-    let die = Uniform::new_inclusive(1, sides);
+impl TryFrom<Expression> for i64 {
+    type Error = ();
 
-    rng.sample_iter(&die).take(count.try_into().unwrap()).sum()
+    fn try_from(value: Expression) -> Result<i64, Self::Error> {
+        match value {
+            Expression::Integer(value) => Ok(value),
+            _ => Err(()),
+        }
+    }
 }
 
-fn handle_op(left: i64, right: i64, op: Op) -> i64 {
+impl TryFrom<Expression> for usize {
+    type Error = ();
+
+    fn try_from(value: Expression) -> Result<usize, Self::Error> {
+        match value {
+            Expression::Integer(value) => Ok(usize::try_from(value).unwrap()),
+            _ => Err(()),
+        }
+    }
+}
+
+fn handle_roll(rng: &mut impl Rng, count: Expression, sides: Expression) -> Result<i64, ()> {
+    let die = Uniform::new_inclusive(1, i64::try_from(sides)?);
+
+    Ok(rng.sample_iter(&die).take(count.try_into()?).sum())
+}
+
+fn handle_op(left: Expression, right: Expression, op: Op) -> Result<i64, ()> {
     match op {
-        Op::Subtract => left - right,
-        Op::Add => left + right,
+        Op::Subtract => Ok(i64::try_from(left)? - i64::try_from(right)?),
+        Op::Add => Ok(i64::try_from(left)? + i64::try_from(right)?),
     }
 }
 
@@ -30,41 +55,84 @@ impl<'a, T: Rng, E: Environment + Display> EvalVisitor<'a, T, E> {
     }
 }
 
-impl<'a, T: Rng, E: Environment + Display> Visitor<Option<String>, Option<i64>>
-    for EvalVisitor<'a, T, E>
+impl<'a, T: Rng, E: Environment + Display + Clone>
+    Visitor<Result<String, ()>, Result<Expression, ()>> for EvalVisitor<'a, T, E>
 {
-    fn visit_expression(&mut self, expr: Box<Expression>) -> Option<i64> {
+    fn visit_expression(&mut self, expr: Box<Expression>) -> Result<Expression, ()> {
         match *expr {
-            Expression::Integer(value) => Some(value),
-            Expression::Term(left_expr, right_expr, op) => Some(handle_op(
-                self.visit_expression(left_expr).unwrap(),
-                self.visit_expression(right_expr).unwrap(),
+            Expression::Integer(_) => Ok(*expr),
+            Expression::Term(left_expr, right_expr, op) => Ok(Expression::Integer(handle_op(
+                self.visit_expression(left_expr)?,
+                self.visit_expression(right_expr)?,
                 op,
-            )),
+            )?)),
             Expression::DiceRoll {
                 count: left_expr,
                 sides: right_expr,
             } => {
-                let left_val = self.visit_expression(left_expr).unwrap();
-                let right_val = self.visit_expression(right_expr).unwrap();
+                let left_val = self.visit_expression(left_expr)?;
+                let right_val = self.visit_expression(right_expr)?;
 
-                Some(handle_roll(self.rng, left_val, right_val))
+                Ok(Expression::Integer(handle_roll(
+                    self.rng, left_val, right_val,
+                )?))
             }
-            Expression::Variable(variable_name) => {
-                self.visit_expression(self.env.get(self.user, &variable_name).unwrap())
-            }
+            Expression::Variable(variable_name) => match self.env.get(self.user, &variable_name) {
+                Some(env_expr) => self.visit_expression(env_expr),
+                None => Err(()),
+            },
+            Expression::DiceRollTemplate {
+                args: _,
+                expressions: _,
+            } => Ok(*expr),
+            Expression::DiceRollTemplateCall {
+                template_expression,
+                args,
+            } => match self.visit_expression(template_expression)? {
+                Expression::DiceRollTemplate {
+                    args: arg_names,
+                    expressions,
+                } => {
+                    let mut new_env = self.env.clone();
+                    for (arg_name, arg) in arg_names.iter().zip(args) {
+                        new_env.set(
+                            self.user,
+                            arg_name,
+                            Box::new(self.visit_expression(Box::new(arg))?),
+                        )
+                    }
+
+                    let result: Result<Vec<Expression>, _> = expressions
+                        .iter()
+                        .map(|expr: &Expression| -> Result<Expression, ()> {
+                            EvalVisitor::new(self.rng, &mut new_env, self.user)
+                                .visit_expression(Box::new(expr.clone()))
+                        })
+                        .collect();
+
+                    Ok(result?.last().unwrap().clone())
+                }
+                _ => Err(()),
+            },
         }
     }
-    fn visit_statement(&mut self, stmt: Box<Statement>) -> Option<String> {
+    fn visit_statement(&mut self, stmt: Box<Statement>) -> Result<String, ()> {
         match *stmt {
+<<<<<<< HEAD
             Statement::Help => Some(t!("help-general").to_string()),
             Statement::PrintEnv => Some(format!("{}", self.env)),
             Statement::Roll(expr) => Some(format!("{}", self.visit_expression(expr).unwrap())),
+=======
+            Statement::PrintEnv => Ok(format!("{}", self.env)),
+            Statement::Roll(expr) => {
+                Ok(format!("{}", i64::try_from(self.visit_expression(expr)?)?))
+            }
+>>>>>>> a9ae91e (eval: allow for dice roll templates)
             Statement::SetValue(variable, expr) => {
-                let value = Expression::Integer(self.visit_expression(expr).unwrap());
+                let value = self.visit_expression(expr)?;
                 let return_string = format!("{:?} => {:?}", variable, value);
                 self.env.set(self.user, &variable, Box::new(value));
-                Some(return_string)
+                Ok(return_string)
             }
         }
     }
@@ -86,7 +154,7 @@ mod tests {
             visitor
                 .visit_expression(Box::new(Expression::Integer(1)))
                 .unwrap(),
-            1
+            Expression::Integer(1)
         );
         assert_eq!(
             visitor
@@ -96,7 +164,7 @@ mod tests {
                     Op::Add
                 )))
                 .unwrap(),
-            3
+            Expression::Integer(3)
         );
         assert_eq!(
             visitor
@@ -118,7 +186,22 @@ mod tests {
                     sides: Box::new(Expression::Integer(410123123))
                 }))
                 .unwrap(),
-            1231239
+            Expression::Integer(1231239)
+        );
+        assert_eq!(
+            visitor
+                .visit_expression(Box::new(Expression::DiceRollTemplateCall {
+                    template_expression: Box::new(Expression::DiceRollTemplate {
+                        args: vec![],
+                        expressions: vec![Expression::DiceRoll {
+                            count: Box::new(Expression::Integer(1)),
+                            sides: Box::new(Expression::Integer(4)),
+                        }]
+                    }),
+                    args: vec![],
+                }))
+                .unwrap(),
+            Expression::Integer(1),
         );
     }
 }
