@@ -118,16 +118,11 @@ impl<'a, T: Rng, E: Environment + Display + Clone>
     }
     fn visit_statement(&mut self, stmt: Box<Statement>) -> Result<String, ()> {
         match *stmt {
-<<<<<<< HEAD
-            Statement::Help => Some(t!("help-general").to_string()),
-            Statement::PrintEnv => Some(format!("{}", self.env)),
-            Statement::Roll(expr) => Some(format!("{}", self.visit_expression(expr).unwrap())),
-=======
+            Statement::Help => Ok(t!("help-general").to_string()),
             Statement::PrintEnv => Ok(format!("{}", self.env)),
             Statement::Roll(expr) => {
                 Ok(format!("{}", i64::try_from(self.visit_expression(expr)?)?))
             }
->>>>>>> a9ae91e (eval: allow for dice roll templates)
             Statement::SetValue(variable, expr) => {
                 let value = self.visit_expression(expr)?;
                 let return_string = format!("{:?} => {:?}", variable, value);
