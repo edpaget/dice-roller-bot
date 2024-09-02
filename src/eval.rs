@@ -58,17 +58,19 @@ impl<'a, T: Rng, E: Environment + Display> EvalVisitor<'a, T, E> {
 impl<'a, T: Rng, E: Environment + Display + Clone>
     Visitor<Result<String, ()>, Result<Expression, ()>> for EvalVisitor<'a, T, E>
 {
-    fn visit_expression(&mut self, expr: Box<Expression>) -> Result<Expression, ()> {
-        match *expr {
-            Expression::Integer(_) => Ok(*expr),
-            Expression::Term(left_expr, right_expr, op) => Ok(Expression::Integer(handle_op(
-                self.visit_expression(left_expr)?,
-                self.visit_expression(right_expr)?,
-                op,
-            )?)),
+    fn visit_expression(&mut self, expr: &Expression) -> Result<Expression, ()> {
+        match expr {
+            Expression::Integer(_) => Ok(expr.clone()),
+            Expression::Term(ref left_expr, ref right_expr, op) => {
+                Ok(Expression::Integer(handle_op(
+                    self.visit_expression(left_expr)?,
+                    self.visit_expression(right_expr)?,
+                    op.clone(),
+                )?))
+            }
             Expression::DiceRoll {
-                count: left_expr,
-                sides: right_expr,
+                count: ref left_expr,
+                sides: ref right_expr,
             } => {
                 let left_val = self.visit_expression(left_expr)?;
                 let right_val = self.visit_expression(right_expr)?;
@@ -77,16 +79,16 @@ impl<'a, T: Rng, E: Environment + Display + Clone>
                     self.rng, left_val, right_val,
                 )?))
             }
-            Expression::Variable(variable_name) => match self.env.get(self.user, &variable_name) {
-                Some(env_expr) => self.visit_expression(env_expr),
+            Expression::Variable(variable_name) => match self.env.get(self.user, variable_name) {
+                Some(env_expr) => Ok(env_expr.clone()),
                 None => Err(()),
             },
             Expression::DiceRollTemplate {
                 args: _,
                 expressions: _,
-            } => Ok(*expr),
+            } => Ok(expr.clone()),
             Expression::DiceRollTemplateCall {
-                template_expression,
+                ref template_expression,
                 args,
             } => match self.visit_expression(template_expression)? {
                 Expression::DiceRollTemplate {
@@ -95,18 +97,14 @@ impl<'a, T: Rng, E: Environment + Display + Clone>
                 } => {
                     let mut new_env = self.env.clone();
                     for (arg_name, arg) in arg_names.iter().zip(args) {
-                        new_env.set(
-                            self.user,
-                            arg_name,
-                            Box::new(self.visit_expression(Box::new(arg))?),
-                        )
+                        new_env.set(self.user, arg_name, &self.visit_expression(arg)?)
                     }
 
                     let result: Result<Vec<Expression>, _> = expressions
                         .iter()
                         .map(|expr: &Expression| -> Result<Expression, ()> {
                             EvalVisitor::new(self.rng, &mut new_env, self.user)
-                                .visit_expression(Box::new(expr.clone()))
+                                .visit_expression(expr)
                         })
                         .collect();
 
@@ -116,17 +114,17 @@ impl<'a, T: Rng, E: Environment + Display + Clone>
             },
         }
     }
-    fn visit_statement(&mut self, stmt: Box<Statement>) -> Result<String, ()> {
-        match *stmt {
+    fn visit_statement(&mut self, stmt: &Statement) -> Result<String, ()> {
+        match stmt {
             Statement::Help => Ok(t!("help-general").to_string()),
             Statement::PrintEnv => Ok(format!("{}", self.env)),
-            Statement::Roll(expr) => {
+            Statement::Roll(ref expr) => {
                 Ok(format!("{}", i64::try_from(self.visit_expression(expr)?)?))
             }
-            Statement::SetValue(variable, expr) => {
+            Statement::SetValue(variable, ref expr) => {
                 let value = self.visit_expression(expr)?;
                 let return_string = format!("{:?} => {:?}", variable, value);
-                self.env.set(self.user, &variable, Box::new(value));
+                self.env.set(self.user, variable, &value);
                 Ok(return_string)
             }
         }
@@ -147,13 +145,13 @@ mod tests {
         let mut visitor = EvalVisitor::new(&mut rng, &mut env, &user);
         assert_eq!(
             visitor
-                .visit_expression(Box::new(Expression::Integer(1)))
+                .visit_expression(&Box::new(Expression::Integer(1)))
                 .unwrap(),
             Expression::Integer(1)
         );
         assert_eq!(
             visitor
-                .visit_expression(Box::new(Expression::Term(
+                .visit_expression(&Box::new(Expression::Term(
                     Box::new(Expression::Integer(1)),
                     Box::new(Expression::Integer(2)),
                     Op::Add
@@ -163,7 +161,7 @@ mod tests {
         );
         assert_eq!(
             visitor
-                .visit_statement(Box::new(Statement::Roll(Box::new(Expression::Term(
+                .visit_statement(&Box::new(Statement::Roll(Box::new(Expression::Term(
                     Box::new(Expression::DiceRoll {
                         count: Box::new(Expression::Integer(1)),
                         sides: Box::new(Expression::Integer(6))
@@ -176,7 +174,7 @@ mod tests {
         );
         assert_eq!(
             visitor
-                .visit_expression(Box::new(Expression::DiceRoll {
+                .visit_expression(&Box::new(Expression::DiceRoll {
                     count: Box::new(Expression::Integer(1231239)),
                     sides: Box::new(Expression::Integer(410123123))
                 }))
@@ -185,7 +183,7 @@ mod tests {
         );
         assert_eq!(
             visitor
-                .visit_expression(Box::new(Expression::DiceRollTemplateCall {
+                .visit_expression(&Box::new(Expression::DiceRollTemplateCall {
                     template_expression: Box::new(Expression::DiceRollTemplate {
                         args: vec![],
                         expressions: vec![Expression::DiceRoll {

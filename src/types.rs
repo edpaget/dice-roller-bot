@@ -32,11 +32,11 @@ pub enum Expression {
 }
 
 pub trait Environment {
-    fn get(&self, user_name: &str, var_name: &str) -> Option<Box<Expression>>;
-    fn set(&mut self, user_name: &str, var_name: &str, value: Box<Expression>);
+    fn get(&self, user_name: &str, var_name: &str) -> Option<&Expression>;
+    fn set(&mut self, user_name: &str, var_name: &str, value: &Expression);
 }
 
 pub trait Visitor<S, E> {
-    fn visit_statement(&mut self, stmt: Box<Statement>) -> S;
-    fn visit_expression(&mut self, expr: Box<Expression>) -> E;
+    fn visit_statement(&mut self, stmt: &Statement) -> S;
+    fn visit_expression(&mut self, expr: &Expression) -> E;
 }

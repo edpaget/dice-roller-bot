@@ -23,7 +23,7 @@ pub fn init() -> Result<()> {
                 let _ = rl.add_history_entry(line.as_str());
                 let result = match command(&line[..]) {
                     Ok((_, stmt)) => {
-                        format!("{}\n", visitor.visit_statement(Box::new(stmt)).unwrap())
+                        format!("{}\n", visitor.visit_statement(&stmt).unwrap())
                     }
                     Err(err) => format!("{}\n", err),
                 };
