@@ -25,7 +25,7 @@ impl EventHandler for Handler {
         let env = data.get_mut::<HashMapEnvironment>().unwrap();
         if let Ok((_, ast)) = command(&msg.content) {
             let mut visitor = EvalVisitor::new(&mut rng, env, &msg.author.name);
-            let response = format!("{}\n", visitor.visit_statement(Box::new(ast)).unwrap());
+            let response = format!("{}\n", visitor.visit_statement(&ast).unwrap());
 
             if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
                 println!("Error sending message: {:?}", why);
