@@ -1,1 +1,5 @@
 /target
+/volume
+**/terraform.tfstate
+**/.terraform/*
+**/.terraform*
