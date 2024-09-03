@@ -1,11 +1,11 @@
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while, take_while1},
-    character::complete::char,
+    character::complete::{char, space0, space1},
     combinator::{map_res, opt},
     error::ErrorKind,
-    multi::many0,
-    sequence::{preceded, tuple},
+    multi::{many0, separated_list0, separated_list1},
+    sequence::{delimited, preceded, tuple},
     Err::Error,
     IResult,
 };
@@ -24,14 +24,14 @@ use crate::types::{Expression, Op, Statement};
 // DiceRollTemplate <- (...Variable, => ,...Expression)
 // DiceRoll <- (Integer | Null), Integer
 // Integer <- [0-9]+
-// Variable <- [A-z][A-z0-9-]+
+// Variable <- {[A-z][A-z0-9-]+}
 
 fn from_decimal(input: &str) -> Result<i64, std::num::ParseIntError> {
     input.parse::<i64>()
 }
 
 fn allowed_char(c: char) -> bool {
-    let chars = "!$; \t\r\n";
+    let chars = ",!$;{}[]()=> \t\r\n";
 
     !chars.contains(c)
 }
@@ -40,16 +40,26 @@ fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
-fn sp(input: &str) -> IResult<&str, &str> {
-    let chars = " \t\r\n";
-
-    take_while(move |c| chars.contains(c))(input)
+fn lparen(input: &str) -> IResult<&str, char> {
+    delimited(space0, char('('), space0)(input)
 }
 
-fn variable(input: &str) -> IResult<&str, Expression> {
-    let (input, variable) = take_while1(allowed_char)(input)?;
+fn rparen(input: &str) -> IResult<&str, char> {
+    delimited(space0, char(')'), space0)(input)
+}
 
-    Ok((input, Expression::Variable(variable.to_string())))
+fn sep_comma(input: &str) -> IResult<&str, char> {
+    delimited(space0, char(','), space0)(input)
+}
+
+fn variable(input: &str) -> IResult<&str, &str> {
+    take_while1(allowed_char)(input)
+}
+
+fn variable_ref(input: &str) -> IResult<&str, Expression> {
+    let (input, var_name) = delimited(char('{'), variable, char('}'))(input)?;
+
+    Ok((input, Expression::Variable(var_name.to_string())))
 }
 
 fn integer(input: &str) -> IResult<&str, Expression> {
@@ -75,8 +85,8 @@ fn term(input: &str) -> IResult<&str, Expression> {
     let (input, (expr1, exprs)) = tuple((
         sub_expression,
         many0(tuple((
-            preceded(sp, operation),
-            preceded(sp, sub_expression),
+            preceded(space1, operation),
+            preceded(space1, sub_expression),
         ))),
     ))(input)?;
 
@@ -90,7 +100,11 @@ fn parse_term(left_expr: Expression, next: (Op, Expression)) -> Expression {
 }
 
 fn dice_roll(input: &str) -> IResult<&str, Expression> {
-    let (input, (count, _, sides)) = tuple((opt(integer), char('d'), integer))(input)?;
+    let (input, (count, _, sides)) = tuple((
+        opt(alt((variable_ref, integer))),
+        char('d'),
+        alt((variable_ref, integer)),
+    ))(input)?;
 
     if let Some(n) = count {
         Ok((
@@ -111,12 +125,54 @@ fn dice_roll(input: &str) -> IResult<&str, Expression> {
     }
 }
 
+fn arg_list(input: &str) -> IResult<&str, Vec<&str>> {
+    delimited(lparen, separated_list0(sep_comma, variable), rparen)(input)
+}
+
+fn expression_list(input: &str) -> IResult<&str, Vec<Expression>> {
+    separated_list1(sep_comma, expression)(input)
+}
+
+fn dice_roll_template(input: &str) -> IResult<&str, Expression> {
+    let (input, (arg_list, _, expressions)) =
+        tuple((arg_list, tag("=>"), delimited(lparen, expression, rparen)))(input)?;
+    Ok((
+        input,
+        Expression::DiceRollTemplate {
+            args: arg_list.iter().map(|v| v.to_string()).collect(),
+            expressions: vec![expressions],
+        },
+    ))
+}
+
+fn dice_roll_template_call(input: &str) -> IResult<&str, Expression> {
+    let (input, (template_expression, args)) = tuple((
+        alt((dice_roll_template, variable_ref)),
+        delimited(char('('), expression_list, char(')')),
+    ))(input)?;
+
+    Ok((
+        input,
+        Expression::DiceRollTemplateCall {
+            template_expression: Box::new(template_expression),
+            args,
+        },
+    ))
+}
+
 fn sub_expression(input: &str) -> IResult<&str, Expression> {
-    alt((dice_roll, integer, variable))(input)
+    alt((dice_roll, integer, variable_ref))(input)
 }
 
 fn expression(input: &str) -> IResult<&str, Expression> {
-    alt((term, dice_roll, integer, variable))(input)
+    alt((
+        dice_roll_template_call,
+        dice_roll_template,
+        term,
+        dice_roll,
+        integer,
+        variable_ref,
+    ))(input)
 }
 
 fn print_env(input: &str) -> IResult<&str, Statement> {
@@ -126,24 +182,19 @@ fn print_env(input: &str) -> IResult<&str, Statement> {
 }
 
 fn set_value(input: &str) -> IResult<&str, Statement> {
-    let (input, (variable, expr)) = preceded(
+    let (input, (var_name, expr)) = preceded(
         tag("set"),
-        tuple((preceded(sp, variable), preceded(sp, expression))),
+        tuple((preceded(space1, variable), preceded(space1, expression))),
     )(input)?;
 
-    match variable {
-        Expression::Variable(var_name) => {
-            Ok((input, Statement::SetValue(var_name, Box::new(expr))))
-        }
-        _ => Err(Error(nom::error::Error {
-            input,
-            code: ErrorKind::Tag,
-        })),
-    }
+    Ok((
+        input,
+        Statement::SetValue(var_name.to_string(), Box::new(expr)),
+    ))
 }
 
 fn roll(input: &str) -> IResult<&str, Statement> {
-    let (input, expr) = preceded(tag("roll"), preceded(sp, expression))(input)?;
+    let (input, expr) = preceded(tag("roll"), preceded(space1, expression))(input)?;
 
     Ok((input, Statement::Roll(Box::new(expr))))
 }
@@ -163,19 +214,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_variable() {
+    fn test_variable_ref() {
         assert_eq!(
-            variable("test010").unwrap().1,
+            variable_ref("{test010}").unwrap().1,
             Expression::Variable("test010".to_string())
         );
         assert_eq!(
-            variable("another_one_again").unwrap().1,
+            variable_ref("{another_one_again}").unwrap().1,
             Expression::Variable("another_one_again".to_string())
         );
         assert_eq!(
-            variable("!test_fails"),
+            variable_ref("{!test_fails}"),
             Err(Error(nom::error::Error {
-                input: "!test_fails",
+                input: "!test_fails}",
                 code: ErrorKind::TakeWhile1
             }))
         );
@@ -299,6 +350,38 @@ mod tests {
     }
 
     #[test]
+    fn test_dice_roll_template() {
+        assert_eq!(
+            dice_roll_template("(a,b) => ( {a}d6 + {b} )").unwrap().1,
+            Expression::DiceRollTemplate {
+                args: vec!["a".to_string(), "b".to_string()],
+                expressions: vec![Expression::Term(
+                    Box::new(Expression::DiceRoll {
+                        count: Box::new(Expression::Variable("a".to_string())),
+                        sides: Box::new(Expression::Integer(6))
+                    }),
+                    Box::new(Expression::Variable("b".to_string())),
+                    Op::Add,
+                )]
+            },
+        );
+        assert_eq!(
+            dice_roll_template("(a,  b ) => ({a}d6 + {b} ) ").unwrap().1,
+            Expression::DiceRollTemplate {
+                args: vec!["a".to_string(), "b".to_string()],
+                expressions: vec![Expression::Term(
+                    Box::new(Expression::DiceRoll {
+                        count: Box::new(Expression::Variable("a".to_string())),
+                        sides: Box::new(Expression::Integer(6))
+                    }),
+                    Box::new(Expression::Variable("b".to_string())),
+                    Op::Add,
+                )]
+            },
+        );
+    }
+
+    #[test]
     fn test_set() {
         assert_eq!(
             set_value("set foo 1").unwrap().1,
@@ -363,6 +446,23 @@ mod tests {
         assert_eq!(
             command("!roll 1").unwrap().1,
             Statement::Roll(Box::new(Expression::Integer(1)))
+        );
+        assert_eq!(
+            command("!roll (a, b) => ( {a}d6 + {b} )(1, 10)").unwrap().1,
+            Statement::Roll(Box::new(Expression::DiceRollTemplateCall {
+                template_expression: Box::new(Expression::DiceRollTemplate {
+                    args: vec!["a".to_string(), "b".to_string()],
+                    expressions: vec![Expression::Term(
+                        Box::new(Expression::DiceRoll {
+                            count: Box::new(Expression::Variable("a".to_string())),
+                            sides: Box::new(Expression::Integer(6))
+                        }),
+                        Box::new(Expression::Variable("b".to_string())),
+                        Op::Add,
+                    )]
+                }),
+                args: vec![Expression::Integer(1), Expression::Integer(10)]
+            }))
         );
         assert_eq!(
             command("!set bar 1d6").unwrap().1,
