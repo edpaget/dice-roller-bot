@@ -1,41 +1,43 @@
 use std::env;
 
-use rand::SeedableRng;
 use serenity::{
     async_trait,
     model::{channel::Message, gateway::Ready},
     prelude::*,
 };
 
-use crate::eval::EvalVisitor;
-use crate::parser::command;
-use crate::{environments::hash_map_environment::HashMapEnvironment, types::Visitor};
+use crate::{
+    environments::hash_map_environment::HashMapEnvironment,
+    repl::{REPLContext, REPL},
+};
 
 struct Handler;
 
-impl TypeMapKey for HashMapEnvironment {
-    type Value = HashMapEnvironment;
+impl TypeMapKey for REPL<HashMapEnvironment> {
+    type Value = REPL<HashMapEnvironment>;
 }
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
-        let mut rng = rand::rngs::StdRng::from_entropy();
         let mut data = ctx.data.write().await;
-        let env = data.get_mut::<HashMapEnvironment>().unwrap();
-        if let Ok((_, ast)) = command(&msg.content) {
-            let mut visitor = EvalVisitor::new(&mut rng, env, &msg.author.name);
-            let response = format!("{}\n", visitor.visit_statement(&ast).unwrap());
+        let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name);
+        let repl = data.get_mut::<REPL<HashMapEnvironment>>().unwrap();
+        match repl.exec(repl_ctx, &msg.content) {
+            Ok(eval_result) => {
+                let response = format!("{}\n", eval_result);
 
-            if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
-                println!("Error sending message: {:?}", why);
+                if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
+                    println!("Error sending message: {:?}", why);
+                }
             }
+            Err(_) => println!("Error parsing or evaluating AST"),
         }
     }
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         let mut data = ctx.data.write().await;
-        data.insert::<HashMapEnvironment>(HashMapEnvironment::new());
+        data.insert::<REPL<HashMapEnvironment>>(REPL::default());
         println!("{} is connected!", ready.user.name);
     }
 }

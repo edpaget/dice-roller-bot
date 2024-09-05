@@ -10,7 +10,7 @@ use nom::{
     IResult,
 };
 
-use crate::types::{Expression, Op, Statement};
+use crate::types::{Expression, Op, Parser, Statement};
 
 // Parser Grammer
 //
@@ -205,8 +205,20 @@ fn help(input: &str) -> IResult<&str, Statement> {
     Ok((input, Statement::Help))
 }
 
-pub fn command(input: &str) -> IResult<&str, Statement> {
+fn command(input: &str) -> IResult<&str, Statement> {
     preceded(char('!'), alt((roll, set_value, print_env, help)))(input)
+}
+
+#[derive(Default)]
+pub struct StatementParser;
+
+impl Parser<()> for StatementParser {
+    fn parse(&self, input: &str) -> Result<Statement, ()> {
+        match command(input) {
+            Ok((_, stmt)) => Ok(stmt),
+            Err(_) => Err(()),
+        }
+    }
 }
 
 #[cfg(test)]

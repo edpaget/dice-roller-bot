@@ -1,50 +1,69 @@
-use std::io::{self, Write};
-
 use crate::environments::hash_map_environment::HashMapEnvironment;
 use crate::eval::EvalVisitor;
-use crate::parser::command;
-use crate::types::Visitor;
+use crate::parser::StatementParser;
+use crate::types::{Context, Environment, Parser, Visitor};
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 
-use rustyline::error::ReadlineError;
-use rustyline::{DefaultEditor, Result};
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct REPLContext {
+    repl_scope: String,
+    user_id: String,
+}
 
-pub fn init() -> Result<()> {
-    let mut rl = DefaultEditor::new()?;
-    let mut env = HashMapEnvironment::new();
-    let mut rng = rand::thread_rng();
-    let user = String::from("User");
-    let mut visitor = EvalVisitor::new(&mut rng, &mut env, &user);
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct REPLError;
 
-    loop {
-        let readline = rl.readline(">> ");
-
-        match readline {
-            Ok(line) => {
-                let _ = rl.add_history_entry(line.as_str());
-                let result = match command(&line[..]) {
-                    Ok((_, stmt)) => {
-                        format!("{}\n", visitor.visit_statement(&stmt).unwrap())
-                    }
-                    Err(err) => format!("{}\n", err),
-                };
-                io::stdout()
-                    .write_all(result.to_string().as_bytes())
-                    .unwrap();
-                io::stdout().flush().unwrap();
-            }
-            Err(ReadlineError::Interrupted) => {
-                println!("CTRL-C");
-                break;
-            }
-            Err(ReadlineError::Eof) => {
-                println!("CTRL-D");
-                break;
-            }
-            Err(err) => {
-                println!("Error: {:?}", err);
-                break;
-            }
+impl REPLContext {
+    pub fn new(repl_scope: String, user_id: String) -> Self {
+        REPLContext {
+            repl_scope,
+            user_id,
         }
     }
-    Ok(())
+}
+
+impl Context for &REPLContext {
+    fn user_context_key(&self) -> String {
+        format!(
+            "scope:{}#scope_type:user#user:{}",
+            self.repl_scope, self.user_id
+        )
+    }
+
+    fn global_context_key(&self) -> String {
+        format!("scope:{}#scope_type:global", self.repl_scope)
+    }
+}
+
+pub struct REPL<E: Environment> {
+    parser: StatementParser,
+    rng: StdRng,
+    environment: E,
+}
+
+impl Default for REPL<HashMapEnvironment> {
+    fn default() -> Self {
+        REPL {
+            parser: StatementParser,
+            rng: StdRng::from_entropy(),
+            environment: HashMapEnvironment::new(),
+        }
+    }
+}
+
+impl<E: Environment + Clone> REPL<E> {
+    pub fn exec(&mut self, ctx: &REPLContext, input: &str) -> Result<String, REPLError> {
+        match self.parser.parse(input) {
+            Ok(ast) => {
+                match EvalVisitor::new(&mut self.rng, &mut self.environment)
+                    .visit_statement(ctx, &ast)
+                {
+                    Ok(result) => Ok(result),
+                    Err(_) => Err(REPLError {}),
+                }
+            }
+            Err(_) => Err(REPLError {}),
+        }
+    }
 }
