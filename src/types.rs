@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     Roll(Box<Expression>),
@@ -6,13 +8,19 @@ pub enum Statement {
     Help,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "op_type")]
 pub enum Op {
     Add,
     Subtract,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(
+    rename_all = "snake_case",
+    tag = "expression_type",
+    content = "expression"
+)]
 pub enum Expression {
     Variable(String),
     Integer(i64),
@@ -37,14 +45,14 @@ pub trait Context {
 }
 
 pub trait Environment {
-    fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<&Expression>;
+    fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<Expression>;
     fn set<C: Context>(&mut self, ctx: C, var_name: &str, value: &Expression);
     fn print<C: Context>(&self, ctx: C) -> String;
 }
 
 pub trait Visitor<S, E> {
-    fn visit_statement<C: Context + Copy>(&mut self, ctx: C, stmt: &Statement) -> S;
-    fn visit_expression<C: Context + Copy>(&mut self, ctx: C, expr: &Expression) -> E;
+    fn visit_statement(&mut self, stmt: &Statement) -> S;
+    fn visit_expression(&mut self, expr: &Expression) -> E;
 }
 
 pub trait Parser<E> {
