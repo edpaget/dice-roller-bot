@@ -7,10 +7,14 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-aws-sdk-dynamodb = "0.24.0"
+aws-config = "1.5.5"
+aws-sdk-dynamodb = "1.44.0"
+clap = { version = "4.5.17", features = ["derive"] }
 nom = "7"
 rand = { version = "0.8.5", features = ["std_rng"] }
 rust-i18n = "3.1.2"
 rustyline = "14.0.0"
+serde = { version = "1.0.209", features = ["derive"] }
+serde_dynamo = { version = "4.2.14", features = ["aws-sdk-dynamodb+1"] }
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
-tokio = { version = "1.26", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.26", features = ["full", "macros", "rt-multi-thread"] }

@@ -1,9 +1,12 @@
+use crate::environments::dynamodb_environment::DynamoDBEnvironment;
 use crate::environments::hash_map_environment::HashMapEnvironment;
 use crate::eval::EvalVisitor;
 use crate::parser::StatementParser;
 use crate::types::{Context, Environment, Parser, Visitor};
+use aws_sdk_dynamodb::Client;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use tokio::runtime::Handle;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct REPLContext {
@@ -42,6 +45,16 @@ pub struct REPL<E: Environment> {
     environment: E,
 }
 
+impl<'a> REPL<DynamoDBEnvironment<'a>> {
+    pub fn new(client: &'a Client, rt_handle: &'a Handle) -> Self {
+        REPL {
+            parser: StatementParser,
+            rng: StdRng::from_entropy(),
+            environment: DynamoDBEnvironment::with_default_table(client, rt_handle),
+        }
+    }
+}
+
 impl Default for REPL<HashMapEnvironment> {
     fn default() -> Self {
         REPL {
@@ -56,8 +69,8 @@ impl<E: Environment + Clone> REPL<E> {
     pub fn exec(&mut self, ctx: &REPLContext, input: &str) -> Result<String, REPLError> {
         match self.parser.parse(input) {
             Ok(ast) => {
-                match EvalVisitor::new(&mut self.rng, &mut self.environment)
-                    .visit_statement(ctx, &ast)
+                match EvalVisitor::new(&mut self.rng, &mut self.environment, ctx)
+                    .visit_statement(&ast)
                 {
                     Ok(result) => Ok(result),
                     Err(_) => Err(REPLError {}),

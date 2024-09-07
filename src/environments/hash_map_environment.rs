@@ -23,8 +23,14 @@ impl HashMapEnvironment {
 }
 
 impl Environment for HashMapEnvironment {
-    fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<&Expression> {
-        self.env.get(&ctx.user_context_key()).unwrap().get(var_name)
+    fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<Expression> {
+        Some(
+            self.env
+                .get(&ctx.user_context_key())
+                .unwrap()
+                .get(var_name)?
+                .clone(),
+        )
     }
 
     fn set<C: Context>(&mut self, ctx: C, var_name: &str, result: &Expression) {

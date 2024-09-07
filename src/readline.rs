@@ -3,10 +3,10 @@ use std::io::{self, Write};
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
 
-use crate::environments::hash_map_environment::HashMapEnvironment;
 use crate::repl::{REPLContext, REPL};
+use crate::types::Environment;
 
-pub fn init(repl: &mut REPL<HashMapEnvironment>) -> Result<()> {
+pub fn init<E: Environment + Clone>(repl: &mut REPL<E>) -> Result<()> {
     let mut rl = DefaultEditor::new()?;
     let ctx = &REPLContext::new("repl".to_string(), "user".to_string());
 
