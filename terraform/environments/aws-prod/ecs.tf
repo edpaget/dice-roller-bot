@@ -14,18 +14,18 @@ resource "aws_ecs_task_definition" "dice_roller_task" {
     name = "dice-roller-container"
     essential = true
     image = "dice-roller:latest"
-    log_configuration = {
-      log_driver = "awslogs"
+    logConfiguration = {
+      logDriver = "awslogs"
       options = {
-        awslogs_group = "/prod/dice-roller"
-        awslogs_region = "us-east-2"
+        awslogs-group = "/prod/dice-roller"
+        awslogs-region = "us-east-2"
         awslogs-stream-prefix = "ecs"
       }
     }
     secrets = [
       {
         name = "DISCORD_TOKEN"
-        value_from = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/prod.discord_bot_token"
+        valueFrom = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/prod.discord_bot_token"
       }
     ]
   }])
