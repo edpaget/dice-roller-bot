@@ -53,5 +53,6 @@ resource "aws_ecs_service" "dice_roller" {
   network_configuration {
     subnets = data.aws_subnets.vpc_subnets.ids
     security_groups = [aws_security_group.dice_roller.id]
+    assign_public_ip = true
   }
 }
