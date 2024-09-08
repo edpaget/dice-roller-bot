@@ -39,7 +39,7 @@ jobs:
         id: task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
-          task-definition: task-definition.json
+          task-definition-arn: arn:aws:ecs:us-east-2:311245061868:task-definition/dice-roller-ecs-task-definition
           container-name: prod-dice-roller
           image: ${{ steps.build-image.outputs.image }}
 
@@ -47,7 +47,7 @@ jobs:
         uses: aws-actions/amazon-ecs-deploy-task-definition@v2
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: prod-dice-roller
-          cluster: dice-roller-prod
+          service: dice-roller-ecs-service
+          cluster: prod-dice-roller-ecs-cluster
           wait-for-service-stability: true
           force-new-deployment: true
