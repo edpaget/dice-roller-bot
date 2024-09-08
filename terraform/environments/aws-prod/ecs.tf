@@ -13,7 +13,7 @@ resource "aws_ecs_task_definition" "dice_roller_task" {
   container_definitions = jsonencode([{
     name = "dice-roller-container"
     essential = true
-    image = "dice-roller:latest"
+    image = "${data.aws_ecr_repository.dice_roller.repository_url}:main"
     logConfiguration = {
       logDriver = "awslogs"
       options = {
