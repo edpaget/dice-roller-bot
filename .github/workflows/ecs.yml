@@ -3,6 +3,11 @@ name: Deploy
 on:
   push:
     branches: [ main ]
+    paths:
+      - src/**/*.rs
+      - locales/app.yml
+      - Cargo.toml
+      - Cargo.lock
 
 jobs:
   build:
@@ -40,7 +45,7 @@ jobs:
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition-arn: arn:aws:ecs:us-east-2:311245061868:task-definition/dice-roller-ecs-task-definition
-          container-name: prod-dice-roller
+          container-name: dice-roller-container
           image: ${{ steps.build-image.outputs.image }}
 
       - name: Deploy Amazon ECS task definition
