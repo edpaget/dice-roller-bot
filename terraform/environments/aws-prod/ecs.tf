@@ -38,8 +38,8 @@ resource "aws_ecs_task_definition" "dice_roller_task" {
     "FARGATE"
   ]
 
-  task_role_arn = "arn:aws:iam::311245061868:role/ecsTaskExecutionRole"
-  execution_role_arn = "arn:aws:iam::311245061868:role/prod-dicer-roller-iam-role"
+  execution_role_arn = "arn:aws:iam::311245061868:role/ecsTaskExecutionRole"
+  task_role_arn = "arn:aws:iam::311245061868:role/prod-dicer-roller-iam-role"
 
 }
 
