@@ -2,12 +2,14 @@ name: Deploy
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
     paths:
       - src/**/*.rs
       - locales/app.yml
       - Cargo.toml
       - Cargo.lock
+  workflow_dispatch: {}
 
 jobs:
   build:
