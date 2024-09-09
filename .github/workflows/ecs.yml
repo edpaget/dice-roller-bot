@@ -20,6 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "dice-roller-release"
+      - name: Build
+        run: cargo build --release --verbose --target x86_64-unknown-linux-musl
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
