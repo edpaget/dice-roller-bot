@@ -3,8 +3,18 @@ name: Pull Request Workflow
 on:
   push:
     branches: [ main ]
+    paths:
+      - src/**/*.rs
+      - locales/app.yml
+      - Cargo.toml
+      - Cargo.lock
   pull_request:
     branches: [ main ]
+    paths:
+      - src/**/*.rs
+      - locales/app.yml
+      - Cargo.toml
+      - Cargo.lock
 
 env:
   CARGO_TERM_COLOR: always
@@ -63,13 +73,3 @@ jobs:
         shared-key: "dice-roller"
     - name: Run Clippy
       run: cargo clippy -- -D warnings
-
-  lint-tf:
-    name: Lint Terraform
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - uses: hashicorp/setup-terraform@v3
-    - name: Terraform fmt
-      id: fmt
-      run: terraform fmt -check
