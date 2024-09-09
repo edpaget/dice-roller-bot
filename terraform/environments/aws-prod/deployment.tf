@@ -108,6 +108,17 @@ data "aws_iam_policy_document" "dice_roller_ecs_deployment_policy_doc" {
   }
 
   statement {
+    sid    = "GetTaskDefinition"
+    effect = "Allow"
+    actions = [
+      "ecs:DescribeTaskDefinition"
+    ]
+    resources = [
+      "${aws_ecs_task_definition.dice_roller_task.arn_without_revision}:*",
+    ]
+  }
+
+  statement {
     sid    = "PassRolesInTaskDefinition"
     effect = "Allow"
     actions = [
