@@ -14,7 +14,7 @@ nom = "7"
 rand = { version = "0.8.5", features = ["std_rng"] }
 rust-i18n = "3.1.2"
 rustyline = "14.0.0"
-serde = { version = "1.0.209", features = ["derive"] }
+serde = { version = "1.0.210", features = ["derive"] }
 serde_dynamo = { version = "4.2.14", features = ["aws-sdk-dynamodb+1"] }
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
 tokio = { version = "1.26", features = ["full", "macros", "rt-multi-thread"] }
