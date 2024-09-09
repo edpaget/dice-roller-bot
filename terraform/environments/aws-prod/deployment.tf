@@ -1,7 +1,7 @@
 locals {
   provider_url = "token.actions.githubusercontent.com"
   audience     = "sts.amazonaws.com"
-  subject      = "repo:edpaget/dice-roller-bot"
+  subject      = "repo:edpaget/dice-roller-bot:*"
 
   account_id = data.aws_caller_identity.current.account_id
 }
