@@ -14,7 +14,7 @@ resource "aws_iam_role" "dice_roller_ecs_task_role" {
 
 data "aws_iam_policy_document" "dice_roller_ecs_task_assume_role_doc" {
   statement {
-    sid    = "ecs_task_assume_role"
+    sid    = "ECSTaskAssumeRole"
     effect = "Allow"
     actions = [
       "sts:AssumeRole",
