@@ -3,26 +3,29 @@ use std::env;
 use serenity::{
     async_trait,
     model::{channel::Message, gateway::Ready},
-    prelude::*,
+    prelude::{Client as SerenityClient, Context, EventHandler, GatewayIntents, TypeMapKey},
 };
+use tokio::runtime::Handle;
 
 use crate::{
-    environments::hash_map_environment::HashMapEnvironment,
+    dynamodb::{make_client, DDBClient},
     repl::{REPLContext, REPL},
 };
 
 struct Handler;
 
-impl TypeMapKey for REPL<HashMapEnvironment> {
-    type Value = REPL<HashMapEnvironment>;
+impl TypeMapKey for DDBClient {
+    type Value = DDBClient;
 }
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         let mut data = ctx.data.write().await;
+        let ddb_client = data.get_mut::<DDBClient>().unwrap();
+        let handle = Handle::current();
         let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name);
-        let repl = data.get_mut::<REPL<HashMapEnvironment>>().unwrap();
+        let mut repl = REPL::new(&ddb_client.client, &handle);
         match repl.exec(repl_ctx, &msg.content) {
             Ok(eval_result) => {
                 let response = format!("{}\n", eval_result);
@@ -37,7 +40,8 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         let mut data = ctx.data.write().await;
-        data.insert::<REPL<HashMapEnvironment>>(REPL::default());
+        let ddb_client = make_client(false).await.expect("cannot start DDB client");
+        data.insert::<DDBClient>(ddb_client);
         println!("{} is connected!", ready.user.name);
     }
 }
@@ -49,7 +53,7 @@ pub async fn main() {
         | GatewayIntents::DIRECT_MESSAGES
         | GatewayIntents::MESSAGE_CONTENT;
 
-    let mut client = Client::builder(&token, intents)
+    let mut client = SerenityClient::builder(&token, intents)
         .event_handler(Handler)
         .await
         .expect("Err creating client");

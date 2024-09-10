@@ -115,6 +115,8 @@ mod tests {
             .key_type(KeyType::Range)
             .build()?;
 
+        let _ = rt_handle.block_on(client.delete_table().table_name("dice-roller-test").send());
+
         let _ = rt_handle.block_on(
             client
                 .create_table()
@@ -139,7 +141,8 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().expect("failed to start tokio runtime");
         let client = rt
             .block_on(make_client(true))
-            .expect("failed to create clinet");
+            .expect("failed to create clinet")
+            .client;
         let handle = rt.handle().clone();
         let mut env = make_env(&client, &handle).expect("failed to create env");
         let ctx = &TestCtx;

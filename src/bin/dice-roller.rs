@@ -28,10 +28,10 @@ fn main() {
 
 fn repl_with_db() -> Result<()> {
     let rt = tokio::runtime::Runtime::new().expect("failed to start tokio runtime");
-    let client = rt
+    let ddb_client = rt
         .block_on(dice_roller::dynamodb::make_client(true))
         .expect("failed to start dynamo client");
-    let mut repl = dice_roller::repl::REPL::new(&client, rt.handle());
+    let mut repl = dice_roller::repl::REPL::new(&ddb_client.client, rt.handle());
     dice_roller::readline::init(&mut repl)
 }
 
