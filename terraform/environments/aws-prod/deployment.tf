@@ -115,8 +115,8 @@ data "aws_iam_policy_document" "dice_roller_ecs_deployment_policy_doc" {
       "iam:PassRole"
     ]
     resources = [
-      "arn:aws:iam::311245061868:role/ecsTaskExecutionRole",
-      "arn:aws:iam::311245061868:role/prod-dicer-roller-iam-role",
+      aws_iam_role.dice_roller_ecs_execution_role.arn,
+      aws_iam_role.dice_roller_ecs_task_role.arn,
     ]
   }
 
