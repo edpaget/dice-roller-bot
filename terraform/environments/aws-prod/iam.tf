@@ -14,14 +14,14 @@ resource "aws_iam_role" "dice_roller_ecs_task_role" {
 
 data "aws_iam_policy_document" "dice_roller_ecs_task_assume_role_doc" {
   statement {
-    sid = "ecs_task_assume_role"
+    sid    = "ecs_task_assume_role"
     effect = "Allow"
     actions = [
       "sts:AssumeRole",
     ]
 
     principals {
-     type = "service"
+      type        = "Service"
       identifiers = ["ecs-tasks.amazonaws.com"]
     }
   }
@@ -56,7 +56,7 @@ data "aws_iam_policy_document" "dice_roller_ecs_execution_policy_doc" {
 
 data "aws_iam_policy_document" "dice_roller_ecs_task_policy_doc" {
   statement {
-    sid = "DynamoDBAccess"
+    sid    = "DynamoDBAccess"
     effect = "Allow"
     actions = [
       "dynamodb:GetItem",
