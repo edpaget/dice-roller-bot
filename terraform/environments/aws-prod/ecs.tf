@@ -49,7 +49,7 @@ resource "aws_ecs_service" "dice_roller" {
   deployment_minimum_healthy_percent = 0
 
   network_configuration {
-    subnets          = data.aws_subnets.vpc_subnets.ids
+    subnets          = [aws_subnet.prod_dice_roller_subnet_a.id, aws_subnet.prod_dice_roller_subnet_b.id]
     security_groups  = [aws_security_group.dice_roller.id]
     assign_public_ip = true
   }
