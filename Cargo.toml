@@ -11,6 +11,7 @@ aws-config = "1.5.5"
 aws-sdk-dynamodb = "1.44.0"
 clap = { version = "4.5.17", features = ["derive"] }
 nom = "7"
+queues = "1.1.0"
 rand = { version = "0.8.5", features = ["std_rng"] }
 rust-i18n = "3.1.2"
 rustyline = "14.0.0"

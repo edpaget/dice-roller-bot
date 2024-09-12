@@ -45,14 +45,23 @@ pub trait Context {
 }
 
 pub trait Environment {
-    fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<Expression>;
-    fn set<C: Context>(&mut self, ctx: C, var_name: &str, value: &Expression);
-    fn print<C: Context>(&self, ctx: C) -> String;
+    fn get<C: Context + Send>(
+        &self,
+        ctx: C,
+        var_name: &str,
+    ) -> impl std::future::Future<Output = Option<Expression>> + Send;
+    fn set<C: Context + Send>(
+        &mut self,
+        ctx: C,
+        var_name: &str,
+        value: &Expression,
+    ) -> impl std::future::Future<Output = ()> + Send;
+    fn print<C: Context + Send>(&self, ctx: C) -> impl std::future::Future<Output = String> + Send;
 }
 
 pub trait Visitor<S, E> {
-    fn visit_statement(&mut self, stmt: &Statement) -> S;
-    fn visit_expression(&mut self, expr: &Expression) -> E;
+    async fn visit_expression(&mut self, expr: &Expression) -> E;
+    async fn visit_statement(&mut self, stmt: &Statement) -> S;
 }
 
 pub trait Parser<E> {

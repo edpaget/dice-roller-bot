@@ -40,6 +40,65 @@ fn handle_op(left: Expression, right: Expression, op: Op) -> Result<i64, ()> {
     }
 }
 
+enum Control {
+    Continue,
+    Wait,
+}
+
+struct ControlStack {
+    call_stack: Vec<Expression>,
+    return_stack: Vec<Expression>,
+}
+
+impl ControlStack {
+    fn new(first_expr: Expression) -> Self {
+        ControlStack {
+            call_stack: vec![first_expr],
+            return_stack: vec![],
+        }
+    }
+    fn size_call(&self) -> usize {
+        self.call_stack.len()
+    }
+
+    fn push_return(&mut self, expr: Expression) {
+        self.return_stack.push(expr);
+    }
+
+    fn pop_return(&mut self) -> Result<Expression, ()> {
+        match self.return_stack.pop() {
+            Some(expr) => Ok(expr),
+            None => Err(()),
+        }
+    }
+
+    fn pop_call(&mut self) -> Result<Expression, ()> {
+        match self.call_stack.pop() {
+            Some(expr) => Ok(expr.clone()),
+            None => Err(()),
+        }
+    }
+
+    fn peek_call(&mut self) -> Result<Expression, ()> {
+        match self.call_stack.last() {
+            Some(expr) => Ok(expr.clone()),
+            None => Err(()),
+        }
+    }
+
+    fn push_to_call_stack(&mut self, calls: Vec<Expression>) -> Control {
+        match self.return_stack.last() {
+            None => {
+                for call in calls {
+                    self.call_stack.push(call);
+                }
+                Control::Wait
+            }
+            Some(_) => Control::Continue,
+        }
+    }
+}
+
 pub struct EvalVisitor<'a, T: Rng + ?Sized, E: Environment, C: Context> {
     rng: &'a mut T,
     env: &'a mut E,
@@ -52,77 +111,118 @@ impl<'a, T: Rng, E: Environment, C: Context> EvalVisitor<'a, T, E, C> {
     }
 }
 
-impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy>
+impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
     Visitor<Result<String, ()>, Result<Expression, ()>> for EvalVisitor<'a, T, E, C>
 {
-    fn visit_expression(&mut self, expr: &Expression) -> Result<Expression, ()> {
-        match expr {
-            Expression::Integer(_) => Ok(expr.clone()),
-            Expression::Term(ref left_expr, ref right_expr, op) => {
-                Ok(Expression::Integer(handle_op(
-                    self.visit_expression(left_expr)?,
-                    self.visit_expression(right_expr)?,
-                    op.clone(),
-                )?))
-            }
-            Expression::DiceRoll {
-                count: ref left_expr,
-                sides: ref right_expr,
-            } => {
-                let left_val = self.visit_expression(left_expr)?;
-                let right_val = self.visit_expression(right_expr)?;
+    async fn visit_expression(&mut self, expr: &Expression) -> Result<Expression, ()> {
+        let mut stack = ControlStack::new(expr.clone());
 
-                Ok(Expression::Integer(handle_roll(
-                    self.rng, left_val, right_val,
-                )?))
-            }
-            Expression::Variable(variable_name) => match self.env.get(self.ctx, variable_name) {
-                Some(env_expr) => Ok(env_expr),
-                None => Err(()),
-            },
-            Expression::DiceRollTemplate {
-                args: _,
-                expressions: _,
-            } => Ok(expr.clone()),
-            Expression::DiceRollTemplateCall {
-                ref template_expression,
-                args,
-            } => match self.visit_expression(template_expression)? {
-                Expression::DiceRollTemplate {
-                    args: arg_names,
-                    expressions,
+        while stack.size_call() > 0 {
+            match stack.peek_call()? {
+                Expression::Term(left_expr, right_expr, _)
+                | Expression::DiceRoll {
+                    count: left_expr,
+                    sides: right_expr,
+                } => match stack.push_to_call_stack(vec![*right_expr, *left_expr]) {
+                    Control::Wait => continue,
+                    Control::Continue => (),
+                },
+                Expression::DiceRollTemplateCall {
+                    template_expression,
+                    args,
                 } => {
-                    let mut new_env = self.env.clone();
-                    for (arg_name, arg) in arg_names.iter().zip(args) {
-                        new_env.set(self.ctx, arg_name, &self.visit_expression(arg)?)
+                    let mut calls = args.clone();
+                    calls.reverse();
+                    calls.push(*template_expression);
+                    match stack.push_to_call_stack(calls) {
+                        Control::Wait => continue,
+                        Control::Continue => (),
                     }
-
-                    let result: Result<Vec<Expression>, _> = expressions
-                        .iter()
-                        .map(|expr: &Expression| -> Result<Expression, ()> {
-                            EvalVisitor::new(self.rng, &mut new_env, self.ctx)
-                                .visit_expression(expr)
-                        })
-                        .collect();
-
-                    Ok(result?.last().unwrap().clone())
                 }
-                _ => Err(()),
-            },
+                _ => (),
+            }
+
+            match stack.pop_call()? {
+                expr @ Expression::Integer(_) => {
+                    stack.push_return(expr.clone());
+                }
+                Expression::Term(_, _, op) => {
+                    let right = stack.pop_return()?;
+                    let left = stack.pop_return()?;
+                    stack.push_return(Expression::Integer(handle_op(left, right, op.clone())?));
+                }
+                Expression::DiceRoll { count: _, sides: _ } => {
+                    let sides = stack.pop_return()?;
+                    let count = stack.pop_return()?;
+
+                    stack.push_return(Expression::Integer(handle_roll(self.rng, count, sides)?));
+                }
+                Expression::Variable(variable_name) => {
+                    match self.env.get(self.ctx, &variable_name).await {
+                        Some(env_expr) => {
+                            stack.push_return(env_expr);
+                        }
+                        None => return Err(()),
+                    }
+                }
+                expr @ Expression::DiceRollTemplate {
+                    args: _,
+                    expressions: _,
+                } => {
+                    stack.push_return(expr.clone());
+                }
+                Expression::DiceRollTemplateCall {
+                    template_expression: _,
+                    args: _,
+                } => match stack.pop_return() {
+                    Ok(Expression::DiceRollTemplate {
+                        args: arg_names,
+                        expressions,
+                    }) => {
+                        let mut new_env = self.env.clone();
+                        for arg_name in arg_names {
+                            let arg = stack.pop_return()?;
+                            new_env.set(self.ctx, &arg_name, &arg).await
+                        }
+
+                        // For now just support one expression in a template
+                        match expressions.last() {
+                            Some(expr) => {
+                                stack.push_return(
+                                    Box::pin(
+                                        EvalVisitor::new(self.rng, &mut new_env, self.ctx)
+                                            .visit_expression(expr),
+                                    )
+                                    .await?
+                                    .clone(),
+                                );
+                            }
+                            None => return Err(()),
+                        }
+                    }
+                    _ => return Err(()),
+                },
+            }
+        }
+
+        match stack.pop_return() {
+            Ok(expr) => Ok(expr),
+            Err(_) => Err(()),
         }
     }
 
-    fn visit_statement(&mut self, stmt: &Statement) -> Result<String, ()> {
+    async fn visit_statement(&mut self, stmt: &Statement) -> Result<String, ()> {
         match stmt {
             Statement::Help => Ok(t!("help-general").to_string()),
-            Statement::PrintEnv => Ok(self.env.print(self.ctx).to_string()),
-            Statement::Roll(ref expr) => {
-                Ok(format!("{}", i64::try_from(self.visit_expression(expr)?)?))
-            }
+            Statement::PrintEnv => Ok(self.env.print(self.ctx).await.to_string()),
+            Statement::Roll(ref expr) => Ok(format!(
+                "{}",
+                i64::try_from(self.visit_expression(expr).await?)?
+            )),
             Statement::SetValue(variable, ref expr) => {
-                let value = self.visit_expression(expr)?;
+                let value = self.visit_expression(expr).await?;
                 let return_string = format!("{:?} => {:?}", variable, value);
-                self.env.set(self.ctx, variable, &value);
+                self.env.set(self.ctx, variable, &value).await;
                 Ok(return_string)
             }
         }
@@ -147,14 +247,15 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_eval() {
+    #[tokio::test]
+    async fn test_eval() {
         let mut rng = StepRng::new(0, 1);
         let mut env = HashMapEnvironment::new();
         let mut visitor = EvalVisitor::new(&mut rng, &mut env, &TestCtx {});
         assert_eq!(
             visitor
                 .visit_expression(&Box::new(Expression::Integer(1)))
+                .await
                 .unwrap(),
             Expression::Integer(1)
         );
@@ -165,6 +266,7 @@ mod tests {
                     Box::new(Expression::Integer(2)),
                     Op::Add
                 )))
+                .await
                 .unwrap(),
             Expression::Integer(3)
         );
@@ -178,6 +280,7 @@ mod tests {
                     Box::new(Expression::Integer(1)),
                     Op::Add
                 )))))
+                .await
                 .unwrap(),
             "2"
         );
@@ -187,6 +290,7 @@ mod tests {
                     count: Box::new(Expression::Integer(1231239)),
                     sides: Box::new(Expression::Integer(410123123))
                 }))
+                .await
                 .unwrap(),
             Expression::Integer(1231239)
         );
@@ -202,6 +306,7 @@ mod tests {
                     }),
                     args: vec![],
                 }))
+                .await
                 .unwrap(),
             Expression::Integer(1),
         );

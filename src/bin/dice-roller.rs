@@ -26,16 +26,17 @@ fn main() {
     }
 }
 
-fn repl_with_db() -> Result<()> {
-    let rt = tokio::runtime::Runtime::new().expect("failed to start tokio runtime");
-    let ddb_client = rt
-        .block_on(dice_roller::dynamodb::make_client(true))
+#[tokio::main]
+async fn repl_with_db() -> Result<()> {
+    let ddb_client = dice_roller::dynamodb::make_client(true)
+        .await
         .expect("failed to start dynamo client");
-    let mut repl = dice_roller::repl::REPL::new(&ddb_client.client, rt.handle());
-    dice_roller::readline::init(&mut repl)
+    let mut repl = dice_roller::repl::REPL::new(&ddb_client.client);
+    dice_roller::readline::init(&mut repl).await
 }
 
-fn std_repl() -> Result<()> {
+#[tokio::main]
+async fn std_repl() -> Result<()> {
     let mut repl = dice_roller::repl::REPL::default();
-    dice_roller::readline::init(&mut repl)
+    dice_roller::readline::init(&mut repl).await
 }

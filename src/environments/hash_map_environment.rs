@@ -23,7 +23,7 @@ impl HashMapEnvironment {
 }
 
 impl Environment for HashMapEnvironment {
-    fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<Expression> {
+    async fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<Expression> {
         Some(
             self.env
                 .get(&ctx.user_context_key())
@@ -33,7 +33,7 @@ impl Environment for HashMapEnvironment {
         )
     }
 
-    fn set<C: Context>(&mut self, ctx: C, var_name: &str, result: &Expression) {
+    async fn set<C: Context>(&mut self, ctx: C, var_name: &str, result: &Expression) {
         if let Some(user_map) = self.env.get_mut(&ctx.user_context_key()) {
             user_map.insert(var_name.to_string(), result.clone());
         } else {
@@ -44,7 +44,7 @@ impl Environment for HashMapEnvironment {
         }
     }
 
-    fn print<C: Context>(&self, ctx: C) -> String {
+    async fn print<C: Context>(&self, ctx: C) -> String {
         format!("{:?}", self.env.get(&ctx.user_context_key()).unwrap())
     }
 }
