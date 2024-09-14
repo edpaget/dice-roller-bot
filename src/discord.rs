@@ -5,7 +5,6 @@ use serenity::{
     model::{channel::Message, gateway::Ready},
     prelude::{Client as SerenityClient, Context, EventHandler, GatewayIntents, TypeMapKey},
 };
-use tokio::runtime::Handle;
 
 use crate::{
     dynamodb::{make_client, DDBClient},
@@ -23,10 +22,9 @@ impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         let mut data = ctx.data.write().await;
         let ddb_client = data.get_mut::<DDBClient>().unwrap();
-        let handle = Handle::current();
         let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name);
-        let mut repl = REPL::new(&ddb_client.client, &handle);
-        match repl.exec(repl_ctx, &msg.content) {
+        let mut repl = REPL::new(&ddb_client.client);
+        match repl.exec(repl_ctx, &msg.content).await {
             Ok(eval_result) => {
                 let response = format!("{}\n", eval_result);
 

@@ -6,7 +6,7 @@ use rustyline::{DefaultEditor, Result};
 use crate::repl::{REPLContext, REPL};
 use crate::types::Environment;
 
-pub fn init<E: Environment + Clone>(repl: &mut REPL<E>) -> Result<()> {
+pub async fn init<E: Environment + Clone>(repl: &mut REPL<E>) -> Result<()> {
     let mut rl = DefaultEditor::new()?;
     let ctx = &REPLContext::new("repl".to_string(), "user".to_string());
 
@@ -16,7 +16,7 @@ pub fn init<E: Environment + Clone>(repl: &mut REPL<E>) -> Result<()> {
         match readline {
             Ok(line) => {
                 let _ = rl.add_history_entry(line.as_str());
-                match repl.exec(ctx, &line[..]) {
+                match repl.exec(ctx, &line[..]).await {
                     Ok(eval_result) => {
                         let result = format!("{}\n", eval_result);
 
