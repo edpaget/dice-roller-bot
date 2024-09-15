@@ -26,6 +26,7 @@ pub async fn init<E: Environment + Clone>(repl: &mut REPL<E>) -> Result<()> {
                         io::stdout().flush().unwrap();
                     }
                     Err(_) => {
+                        println!("HERE");
                         io::stdout()
                             .write_all("Something went wrong".to_string().as_bytes())
                             .unwrap();

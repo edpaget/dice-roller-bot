@@ -2,6 +2,7 @@ use crate::types::{Context, Environment, Expression};
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use serde_dynamo::aws_sdk_dynamodb_1::{from_item, to_item};
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct DynamoDBEnvironment<'a> {
@@ -57,6 +58,37 @@ impl<'a> Environment for DynamoDBEnvironment<'a> {
 
     async fn print<C: Context>(&self, ctx: C) -> String {
         format!("dynamo-env:{}", ctx.user_context_key())
+    }
+
+    async fn closure<C: Context>(&self, ctx: C) -> Result<HashMap<String, Expression>, ()> {
+        let response = self
+            .client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("#pk = :pk")
+            .expression_attribute_names("#pk", "pk")
+            .expression_attribute_values(":pk", AttributeValue::S(ctx.user_context_key()))
+            .send()
+            .await;
+
+        match response {
+            Ok(res) => {
+                let mut new_env = HashMap::new();
+                for item in res.items() {
+                    match item.get("sk") {
+                        Some(sk) => match from_item(item.clone()) {
+                            Ok(expr) => {
+                                new_env.insert(sk.as_s().unwrap().to_string(), expr);
+                            }
+                            Err(_) => return Err(()),
+                        },
+                        None => return Err(()),
+                    }
+                }
+                Ok(new_env)
+            }
+            Err(_) => Err(()),
+        }
     }
 }
 

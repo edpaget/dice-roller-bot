@@ -15,6 +15,15 @@ impl Default for HashMapEnvironment {
 }
 
 impl HashMapEnvironment {
+    pub fn from_context_and_initial_values<C: Context>(
+        ctx: C,
+        values: HashMap<String, Expression>,
+    ) -> Self {
+        let mut env = HashMap::new();
+        env.insert(ctx.user_context_key(), values);
+        HashMapEnvironment { env }
+    }
+
     pub fn new() -> Self {
         HashMapEnvironment {
             env: HashMap::new(),
@@ -46,6 +55,13 @@ impl Environment for HashMapEnvironment {
 
     async fn print<C: Context>(&self, ctx: C) -> String {
         format!("{:?}", self.env.get(&ctx.user_context_key()).unwrap())
+    }
+
+    async fn closure<C: Context>(&self, ctx: C) -> Result<HashMap<String, Expression>, ()> {
+        match self.env.get(&ctx.user_context_key()) {
+            Some(map) => Ok(map.clone()),
+            None => Ok(HashMap::new()),
+        }
     }
 }
 
