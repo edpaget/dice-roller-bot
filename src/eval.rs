@@ -5,6 +5,7 @@ use std::convert::{TryFrom, TryInto};
 
 use crate::{
     environments::hash_map_environment::HashMapEnvironment,
+    error::RollerError,
     types::{Context, Environment, Expression, Op, Statement, Visitor},
 };
 
@@ -115,9 +116,10 @@ impl<'a, T: Rng, E: Environment, C: Context> EvalVisitor<'a, T, E, C> {
 }
 
 impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
-    Visitor<Result<String, ()>, Result<Expression, ()>> for EvalVisitor<'a, T, E, C>
+    Visitor<Result<String, RollerError>, Result<Expression, RollerError>>
+    for EvalVisitor<'a, T, E, C>
 {
-    async fn visit_expression(&mut self, expr: &Expression) -> Result<Expression, ()> {
+    async fn visit_expression(&mut self, expr: &Expression) -> Result<Expression, RollerError> {
         let mut stack = ControlStack::new(expr.clone());
 
         while stack.size_call() > 0 {
@@ -164,7 +166,12 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                         Some(env_expr) => {
                             stack.push_return(env_expr);
                         }
-                        None => return Err(()),
+                        None => {
+                            return Err(RollerError::EvalError(format!(
+                                "failed to lookup variable {}",
+                                variable_name
+                            )))
+                        }
                     }
                 }
                 expr @ Expression::DiceRollTemplate {
@@ -202,23 +209,27 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                                     .clone(),
                                 );
                             }
-                            None => return Err(()),
+                            None => {
+                                return Err(RollerError::EvalError(
+                                    "missing body for dice roll template".to_string(),
+                                ))
+                            }
                         }
                     }
-                    _ => {
-                        return Err(());
-                    }
+                    _ => return Err(RollerError::EvalError("not callable".to_string())),
                 },
             }
         }
 
         match stack.pop_return() {
             Ok(expr) => Ok(expr),
-            Err(_) => Err(()),
+            Err(_) => Err(RollerError::EvalError(
+                "evaluation did not produce a result".to_string(),
+            )),
         }
     }
 
-    async fn visit_statement(&mut self, stmt: &Statement) -> Result<String, ()> {
+    async fn visit_statement(&mut self, stmt: &Statement) -> Result<String, RollerError> {
         match stmt {
             Statement::Help => Ok(t!("help-general").to_string()),
             Statement::PrintEnv => Ok(self.env.print(self.ctx).await.to_string()),

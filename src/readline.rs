@@ -1,5 +1,3 @@
-use std::io::{self, Write};
-
 use rustyline::error::ReadlineError;
 use rustyline::{DefaultEditor, Result};
 
@@ -18,19 +16,10 @@ pub async fn init<E: Environment + Clone>(repl: &mut REPL<E>) -> Result<()> {
                 let _ = rl.add_history_entry(line.as_str());
                 match repl.exec(ctx, &line[..]).await {
                     Ok(eval_result) => {
-                        let result = format!("{}\n", eval_result);
-
-                        io::stdout()
-                            .write_all(result.to_string().as_bytes())
-                            .unwrap();
-                        io::stdout().flush().unwrap();
+                        println!("{}\n", eval_result);
                     }
-                    Err(_) => {
-                        println!("HERE");
-                        io::stdout()
-                            .write_all("Something went wrong".to_string().as_bytes())
-                            .unwrap();
-                        io::stdout().flush().unwrap();
+                    Err(err) => {
+                        println!("{}\n", err);
                     }
                 }
             }
