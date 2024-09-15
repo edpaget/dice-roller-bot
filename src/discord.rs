@@ -21,7 +21,7 @@ impl TypeMapKey for DDBClient {
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
         if !msg.content.starts_with('!') {
-            return
+            return;
         }
 
         let mut data = ctx.data.write().await;
