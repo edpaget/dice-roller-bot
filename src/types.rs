@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
@@ -57,6 +58,10 @@ pub trait Environment {
         value: &Expression,
     ) -> impl std::future::Future<Output = ()> + Send;
     fn print<C: Context + Send>(&self, ctx: C) -> impl std::future::Future<Output = String> + Send;
+    fn closure<C: Context + Send>(
+        &self,
+        ctx: C,
+    ) -> impl std::future::Future<Output = Result<HashMap<String, Expression>, ()>> + Send;
 }
 
 pub trait Visitor<S, E> {

@@ -3,7 +3,10 @@ use rand::Rng;
 use rust_i18n::t;
 use std::convert::{TryFrom, TryInto};
 
-use crate::types::{Context, Environment, Expression, Op, Statement, Visitor};
+use crate::{
+    environments::hash_map_environment::HashMapEnvironment,
+    types::{Context, Environment, Expression, Op, Statement, Visitor},
+};
 
 impl TryFrom<Expression> for i64 {
     type Error = ();
@@ -132,7 +135,6 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                     args,
                 } => {
                     let mut calls = args.clone();
-                    calls.reverse();
                     calls.push(*template_expression);
                     match stack.push_to_call_stack(calls) {
                         Control::Wait => continue,
@@ -179,7 +181,10 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                         args: arg_names,
                         expressions,
                     }) => {
-                        let mut new_env = self.env.clone();
+                        let closure = self.env.closure(self.ctx).await?;
+                        let mut new_env =
+                            HashMapEnvironment::from_context_and_initial_values(self.ctx, closure);
+
                         for arg_name in arg_names {
                             let arg = stack.pop_return()?;
                             new_env.set(self.ctx, &arg_name, &arg).await
@@ -200,7 +205,9 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                             None => return Err(()),
                         }
                     }
-                    _ => return Err(()),
+                    _ => {
+                        return Err(());
+                    }
                 },
             }
         }
