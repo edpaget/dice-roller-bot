@@ -20,6 +20,10 @@ impl TypeMapKey for DDBClient {
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
+        if !msg.content.starts_with('!') {
+            return
+        }
+
         let mut data = ctx.data.write().await;
         let ddb_client = data.get_mut::<DDBClient>().unwrap();
         let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name);
