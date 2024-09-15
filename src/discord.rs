@@ -24,15 +24,15 @@ impl EventHandler for Handler {
         let ddb_client = data.get_mut::<DDBClient>().unwrap();
         let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name);
         let mut repl = REPL::new(&ddb_client.client);
-        match repl.exec(repl_ctx, &msg.content).await {
-            Ok(eval_result) => {
-                let response = format!("{}\n", eval_result);
-
-                if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
-                    println!("Error sending message: {:?}", why);
-                }
+        let response = match repl.exec(repl_ctx, &msg.content).await {
+            Ok(eval_result) => format!("{}\n", eval_result),
+            Err(err) => {
+                println!("Error: {} parsing or evaluating msg: {}", err, &msg.content);
+                format!("{}\n", err)
             }
-            Err(_) => println!("Error parsing or evaluating AST"),
+        };
+        if let Err(why) = msg.channel_id.say(&ctx.http, response).await {
+            println!("Error sending message: {:?}", why);
         }
     }
 

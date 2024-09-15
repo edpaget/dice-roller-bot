@@ -1,5 +1,6 @@
 use crate::environments::dynamodb_environment::DynamoDBEnvironment;
 use crate::environments::hash_map_environment::HashMapEnvironment;
+use crate::error::RollerError;
 use crate::eval::EvalVisitor;
 use crate::parser::StatementParser;
 use crate::types::{Context, Environment, Parser, Visitor};
@@ -12,9 +13,6 @@ pub struct REPLContext {
     repl_scope: String,
     user_id: String,
 }
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct REPLError;
 
 impl REPLContext {
     pub fn new(repl_scope: String, user_id: String) -> Self {
@@ -65,18 +63,14 @@ impl Default for REPL<HashMapEnvironment> {
 }
 
 impl<E: Environment + Clone> REPL<E> {
-    pub async fn exec(&mut self, ctx: &REPLContext, input: &str) -> Result<String, REPLError> {
+    pub async fn exec(&mut self, ctx: &REPLContext, input: &str) -> Result<String, RollerError> {
         match self.parser.parse(input) {
             Ok(ast) => {
-                match EvalVisitor::new(&mut self.rng, &mut self.environment, ctx)
+                EvalVisitor::new(&mut self.rng, &mut self.environment, ctx)
                     .visit_statement(&ast)
                     .await
-                {
-                    Ok(result) => Ok(result),
-                    Err(_) => Err(REPLError {}),
-                }
             }
-            Err(_) => Err(REPLError {}),
+            Err(_) => Err(RollerError::ParserError("failed to parse".to_string())),
         }
     }
 }

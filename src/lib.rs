@@ -1,5 +1,6 @@
 pub mod discord;
 pub mod dynamodb;
+pub mod error;
 pub mod readline;
 pub mod repl;
 
