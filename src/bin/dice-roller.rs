@@ -28,10 +28,12 @@ fn main() {
 
 #[tokio::main]
 async fn repl_with_db() -> Result<()> {
-    let ddb_client = dice_roller::dynamodb::make_client(true)
-        .await
-        .expect("failed to start dynamo client");
-    let mut repl = dice_roller::repl::REPL::new(&ddb_client.client);
+    let ddb_client = dice_roller::dynamodb::DDBClient::with_default_table(
+        dice_roller::dynamodb::make_client(true)
+            .await
+            .expect("failed to start dynamo client"),
+    );
+    let mut repl = dice_roller::repl::REPL::new(ddb_client);
     dice_roller::readline::init(&mut repl).await
 }
 

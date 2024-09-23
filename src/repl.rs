@@ -1,10 +1,10 @@
+use crate::dynamodb::DDBClient;
 use crate::environments::dynamodb_environment::DynamoDBEnvironment;
 use crate::environments::hash_map_environment::HashMapEnvironment;
 use crate::error::RollerError;
 use crate::eval::EvalVisitor;
 use crate::parser::StatementParser;
 use crate::types::{Context, Environment, Parser, Visitor};
-use aws_sdk_dynamodb::Client;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
 
@@ -36,18 +36,19 @@ impl Context for &REPLContext {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct REPL<E: Environment> {
     parser: StatementParser,
     rng: StdRng,
     environment: E,
 }
 
-impl<'a> REPL<DynamoDBEnvironment<'a>> {
-    pub fn new(client: &'a Client) -> Self {
+impl REPL<DynamoDBEnvironment> {
+    pub fn new(client: DDBClient) -> Self {
         REPL {
             parser: StatementParser,
             rng: StdRng::from_entropy(),
-            environment: DynamoDBEnvironment::with_default_table(client),
+            environment: DynamoDBEnvironment::new(client),
         }
     }
 }
