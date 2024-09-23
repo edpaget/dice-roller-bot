@@ -1,59 +1,34 @@
+use crate::dynamodb::DDBClient;
 use crate::types::{Context, Environment, Expression};
-use aws_sdk_dynamodb::types::AttributeValue;
-use aws_sdk_dynamodb::Client;
-use serde_dynamo::aws_sdk_dynamodb_1::{from_item, to_item};
 use std::collections::HashMap;
 
 #[derive(Clone)]
-pub struct DynamoDBEnvironment<'a> {
-    client: &'a Client,
-    table_name: String,
+pub struct DynamoDBEnvironment {
+    client: DDBClient,
 }
 
-const DEFAULT_TABLE_NAME: &str = "dice-roller-bot";
-
-impl<'a> DynamoDBEnvironment<'a> {
-    pub fn new(client: &'a Client, table_name: String) -> Self {
-        DynamoDBEnvironment { client, table_name }
-    }
-
-    pub fn with_default_table(client: &'a Client) -> Self {
-        DynamoDBEnvironment::new(client, DEFAULT_TABLE_NAME.to_string())
+impl DynamoDBEnvironment {
+    pub fn new(client: DDBClient) -> Self {
+        DynamoDBEnvironment { client }
     }
 }
 
-impl<'a> Environment for DynamoDBEnvironment<'a> {
+impl Environment for DynamoDBEnvironment {
     async fn get<C: Context>(&self, ctx: C, var_name: &str) -> Option<Expression> {
-        let response = self
-            .client
-            .get_item()
-            .table_name(&self.table_name)
-            .key("pk", AttributeValue::S(ctx.user_context_key()))
-            .key("sk", AttributeValue::S(format!("var_name:{}", var_name)))
-            .send()
-            .await;
-
-        match response {
-            Ok(res) => match from_item(res.item()?.clone()) {
-                Ok(expr) => Some(expr),
-                Err(_) => None,
-            },
-            Err(_) => None,
-        }
+        self.client
+            .get_expression(&ctx.user_context_key(), &format!("var_name:{}", var_name))
+            .await
+            .ok()
     }
 
     async fn set<C: Context>(&mut self, ctx: C, var_name: &str, result: &Expression) {
-        if let Ok(item) = to_item(result) {
-            let _ = self
-                .client
-                .put_item()
-                .table_name(&self.table_name)
-                .set_item(Some(item))
-                .item("pk", AttributeValue::S(ctx.user_context_key()))
-                .item("sk", AttributeValue::S(format!("var_name:{}", var_name)))
-                .send()
-                .await;
-        }
+        self.client
+            .set_expression(
+                &ctx.user_context_key(),
+                &format!("var_name:{}", var_name),
+                result,
+            )
+            .await
     }
 
     async fn print<C: Context>(&self, ctx: C) -> String {
@@ -61,41 +36,14 @@ impl<'a> Environment for DynamoDBEnvironment<'a> {
     }
 
     async fn closure<C: Context>(&self, ctx: C) -> Result<HashMap<String, Expression>, ()> {
-        let response = self
-            .client
-            .query()
-            .table_name(&self.table_name)
-            .key_condition_expression("#pk = :pk")
-            .expression_attribute_names("#pk", "pk")
-            .expression_attribute_values(":pk", AttributeValue::S(ctx.user_context_key()))
-            .send()
-            .await;
-
-        match response {
-            Ok(res) => {
-                let mut new_env = HashMap::new();
-                for item in res.items() {
-                    match item.get("sk") {
-                        Some(sk) => match from_item(item.clone()) {
-                            Ok(expr) => {
-                                new_env.insert(sk.as_s().unwrap().to_string(), expr);
-                            }
-                            Err(_) => return Err(()),
-                        },
-                        None => return Err(()),
-                    }
-                }
-                Ok(new_env)
-            }
-            Err(_) => Err(()),
-        }
+        self.client.get_all_in_scope(&ctx.user_context_key()).await
     }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use crate::dynamodb::make_client;
+    use crate::dynamodb::{make_client, DDBClient};
 
     use super::*;
     use aws_sdk_dynamodb::types::{
@@ -116,7 +64,7 @@ mod tests {
     }
 
     #[allow(clippy::result_large_err)]
-    async fn make_env(client: &Client) -> Result<DynamoDBEnvironment, Error> {
+    async fn make_env(client: &DDBClient) -> Result<DynamoDBEnvironment, Error> {
         let pk = AttributeDefinition::builder()
             .attribute_name("pk")
             .attribute_type(ScalarAttributeType::S)
@@ -138,12 +86,14 @@ mod tests {
             .build()?;
 
         let _ = client
+            .client
             .delete_table()
             .table_name("dice-roller-test")
             .send()
             .await;
 
         let _ = client
+            .client
             .create_table()
             .table_name("dice-roller-test")
             .key_schema(pks)
@@ -154,18 +104,15 @@ mod tests {
             .send()
             .await;
 
-        Ok(DynamoDBEnvironment::new(
-            client,
-            "dice-roller-test".to_string(),
-        ))
+        Ok(DynamoDBEnvironment::new(client.clone()))
     }
 
     #[tokio::test]
     async fn test_save_read_dynamo() {
-        let client = make_client(true)
-            .await
-            .expect("failed to create client")
-            .client;
+        let client = DDBClient::new(
+            make_client(true).await.expect("failed to create client"),
+            "dice-roller-test".to_string(),
+        );
         let mut env = make_env(&client).await.expect("failed to create env");
         let ctx = &TestCtx;
         env.set(ctx, "test_value", &Expression::Integer(1)).await;

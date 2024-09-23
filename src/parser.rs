@@ -209,7 +209,7 @@ fn command(input: &str) -> IResult<&str, Statement> {
     preceded(char('!'), alt((roll, set_value, print_env, help)))(input)
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct StatementParser;
 
 impl Parser<()> for StatementParser {
