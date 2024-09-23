@@ -4,6 +4,7 @@ use rust_i18n::t;
 use std::convert::{TryFrom, TryInto};
 
 use crate::{
+    call_stack::{Control, ControlStack},
     environments::hash_map_environment::HashMapEnvironment,
     error::RollerError,
     types::{Context, Environment, Expression, Op, Statement, Visitor},
@@ -44,65 +45,6 @@ fn handle_op(left: Expression, right: Expression, op: Op) -> Result<i64, ()> {
     }
 }
 
-enum Control {
-    Continue,
-    Wait,
-}
-
-struct ControlStack {
-    call_stack: Vec<Expression>,
-    return_stack: Vec<Expression>,
-}
-
-impl ControlStack {
-    fn new(first_expr: Expression) -> Self {
-        ControlStack {
-            call_stack: vec![first_expr],
-            return_stack: vec![],
-        }
-    }
-    fn size_call(&self) -> usize {
-        self.call_stack.len()
-    }
-
-    fn push_return(&mut self, expr: Expression) {
-        self.return_stack.push(expr);
-    }
-
-    fn pop_return(&mut self) -> Result<Expression, ()> {
-        match self.return_stack.pop() {
-            Some(expr) => Ok(expr),
-            None => Err(()),
-        }
-    }
-
-    fn pop_call(&mut self) -> Result<Expression, ()> {
-        match self.call_stack.pop() {
-            Some(expr) => Ok(expr.clone()),
-            None => Err(()),
-        }
-    }
-
-    fn peek_call(&mut self) -> Result<Expression, ()> {
-        match self.call_stack.last() {
-            Some(expr) => Ok(expr.clone()),
-            None => Err(()),
-        }
-    }
-
-    fn push_to_call_stack(&mut self, calls: Vec<Expression>) -> Control {
-        match self.return_stack.last() {
-            None => {
-                for call in calls {
-                    self.call_stack.push(call);
-                }
-                Control::Wait
-            }
-            Some(_) => Control::Continue,
-        }
-    }
-}
-
 pub struct EvalVisitor<'a, T: Rng + ?Sized, E: Environment, C: Context> {
     rng: &'a mut T,
     env: &'a mut E,
@@ -128,7 +70,7 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                 | Expression::DiceRoll {
                     count: left_expr,
                     sides: right_expr,
-                } => match stack.push_to_call_stack(vec![*right_expr, *left_expr]) {
+                } => match stack.push_to_call_stack(&[*left_expr, *right_expr]) {
                     Control::Wait => continue,
                     Control::Continue => (),
                 },
@@ -136,9 +78,11 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                     template_expression,
                     args,
                 } => {
-                    let mut calls = args.clone();
-                    calls.push(*template_expression);
-                    match stack.push_to_call_stack(calls) {
+                    let mut calls = vec![*template_expression];
+                    for arg in args {
+                        calls.push(arg)
+                    }
+                    match stack.push_to_call_stack(calls.as_slice()) {
                         Control::Wait => continue,
                         Control::Continue => (),
                     }
@@ -151,13 +95,13 @@ impl<'a, T: Rng, E: Environment + Clone, C: Context + Copy + Send>
                     stack.push_return(expr.clone());
                 }
                 Expression::Term(_, _, op) => {
-                    let right = stack.pop_return()?;
                     let left = stack.pop_return()?;
+                    let right = stack.pop_return()?;
                     stack.push_return(Expression::Integer(handle_op(left, right, op.clone())?));
                 }
                 Expression::DiceRoll { count: _, sides: _ } => {
-                    let sides = stack.pop_return()?;
                     let count = stack.pop_return()?;
+                    let sides = stack.pop_return()?;
 
                     stack.push_return(Expression::Integer(handle_roll(self.rng, count, sides)?));
                 }
@@ -290,12 +234,37 @@ mod tests {
         );
         assert_eq!(
             visitor
+                .visit_expression(&Box::new(Expression::Term(
+                    Box::new(Expression::Integer(1)),
+                    Box::new(Expression::Integer(2)),
+                    Op::Subtract,
+                )))
+                .await
+                .unwrap(),
+            Expression::Integer(-1)
+        );
+        assert_eq!(
+            visitor
                 .visit_statement(&Box::new(Statement::Roll(Box::new(Expression::Term(
                     Box::new(Expression::DiceRoll {
                         count: Box::new(Expression::Integer(1)),
                         sides: Box::new(Expression::Integer(6))
                     }),
                     Box::new(Expression::Integer(1)),
+                    Op::Add
+                )))))
+                .await
+                .unwrap(),
+            "2"
+        );
+        assert_eq!(
+            visitor
+                .visit_statement(&Box::new(Statement::Roll(Box::new(Expression::Term(
+                    Box::new(Expression::Integer(1)),
+                    Box::new(Expression::DiceRoll {
+                        count: Box::new(Expression::Integer(1)),
+                        sides: Box::new(Expression::Integer(6))
+                    }),
                     Op::Add
                 )))))
                 .await
@@ -327,6 +296,46 @@ mod tests {
                 .await
                 .unwrap(),
             Expression::Integer(1),
+        );
+        assert_eq!(
+            visitor
+                .visit_expression(&Box::new(Expression::DiceRollTemplateCall {
+                    template_expression: Box::new(Expression::DiceRollTemplate {
+                        args: vec!["A".to_string(), "B".to_string()],
+                        expressions: vec![Expression::Term(
+                            Box::new(Expression::DiceRoll {
+                                count: Box::new(Expression::Variable("A".to_string())),
+                                sides: Box::new(Expression::Integer(4)),
+                            }),
+                            Box::new(Expression::Variable("B".to_string())),
+                            Op::Add,
+                        )]
+                    }),
+                    args: vec![Expression::Integer(2), Expression::Integer(6)],
+                }))
+                .await
+                .unwrap(),
+            Expression::Integer(8),
+        );
+        assert_eq!(
+            visitor
+                .visit_expression(&Box::new(Expression::DiceRollTemplateCall {
+                    template_expression: Box::new(Expression::DiceRollTemplate {
+                        args: vec!["A".to_string(), "B".to_string()],
+                        expressions: vec![Expression::Term(
+                            Box::new(Expression::DiceRoll {
+                                count: Box::new(Expression::Variable("A".to_string())),
+                                sides: Box::new(Expression::Integer(4)),
+                            }),
+                            Box::new(Expression::Variable("B".to_string())),
+                            Op::Subtract,
+                        )]
+                    }),
+                    args: vec![Expression::Integer(2), Expression::Integer(6)],
+                }))
+                .await
+                .unwrap(),
+            Expression::Integer(-4),
         );
     }
 }
