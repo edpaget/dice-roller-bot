@@ -4,7 +4,7 @@ use nom::{
     character::complete::{char, space0, space1},
     combinator::{map_res, opt},
     error::ErrorKind,
-    multi::{many0, separated_list0, separated_list1},
+    multi::{many0, separated_list0},
     sequence::{delimited, preceded, tuple},
     Err::Error,
     IResult,
@@ -133,7 +133,7 @@ fn arg_list(input: &str) -> IResult<&str, Vec<&str>> {
 }
 
 fn expression_list(input: &str) -> IResult<&str, Vec<Expression>> {
-    separated_list1(sep_comma, expression)(input)
+    separated_list0(sep_comma, expression)(input)
 }
 
 fn dice_roll_template(input: &str) -> IResult<&str, Expression> {
@@ -463,6 +463,13 @@ mod tests {
                 Op::Add
             )))
         );
+        assert_eq!(
+            roll("roll {test}()").unwrap().1,
+            Statement::Roll(Box::new(Expression::DiceRollTemplateCall {
+                template_expression: Box::new(Expression::Variable("test".to_string())),
+                args: vec![],
+            }))
+        )
     }
 
     #[test]
