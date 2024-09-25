@@ -11,34 +11,42 @@ use crate::{
 };
 
 impl TryFrom<Expression> for i64 {
-    type Error = ();
+    type Error = RollerError;
 
     fn try_from(value: Expression) -> Result<i64, Self::Error> {
         match value {
             Expression::Integer(value) => Ok(value),
-            _ => Err(()),
+            _ => Err(RollerError::EvalError(
+                "can't convert non-integer exprsession to int".to_string(),
+            )),
         }
     }
 }
 
 impl TryFrom<Expression> for usize {
-    type Error = ();
+    type Error = RollerError;
 
     fn try_from(value: Expression) -> Result<usize, Self::Error> {
         match value {
             Expression::Integer(value) => Ok(usize::try_from(value).unwrap()),
-            _ => Err(()),
+            _ => Err(RollerError::EvalError(
+                "can't convert non-integer exprsession to usize".to_string(),
+            )),
         }
     }
 }
 
-fn handle_roll(rng: &mut impl Rng, count: Expression, sides: Expression) -> Result<i64, ()> {
+fn handle_roll(
+    rng: &mut impl Rng,
+    count: Expression,
+    sides: Expression,
+) -> Result<i64, RollerError> {
     let die = Uniform::new_inclusive(1, i64::try_from(sides)?);
 
     Ok(rng.sample_iter(&die).take(count.try_into()?).sum())
 }
 
-fn handle_op(left: Expression, right: Expression, op: Op) -> Result<i64, ()> {
+fn handle_op(left: Expression, right: Expression, op: Op) -> Result<i64, RollerError> {
     match op {
         Op::Subtract => Ok(i64::try_from(left)? - i64::try_from(right)?),
         Op::Add => Ok(i64::try_from(left)? + i64::try_from(right)?),

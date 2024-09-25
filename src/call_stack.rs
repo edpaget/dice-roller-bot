@@ -1,3 +1,4 @@
+use crate::error::RollerError;
 use crate::types::Expression;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,24 +37,24 @@ impl ControlStack {
         self.return_stack.push(expr);
     }
 
-    pub fn pop_return(&mut self) -> Result<Expression, ()> {
+    pub fn pop_return(&mut self) -> Result<Expression, RollerError> {
         match self.return_stack.pop() {
             Some(expr) => Ok(expr),
-            None => Err(()),
+            None => Err(RollerError::EvalError("return stack empty".to_string())),
         }
     }
 
-    pub fn pop_call(&mut self) -> Result<Expression, ()> {
+    pub fn pop_call(&mut self) -> Result<Expression, RollerError> {
         match self.call_stack.pop() {
             Some(call) => Ok(call.expr.clone()),
-            None => Err(()),
+            None => Err(RollerError::EvalError("call stack empty".to_string())),
         }
     }
 
-    pub fn peek_call(&mut self) -> Result<Expression, ()> {
+    pub fn peek_call(&mut self) -> Result<Expression, RollerError> {
         match self.call_stack.last() {
             Some(call) => Ok(call.expr.clone()),
-            None => Err(()),
+            None => Err(RollerError::EvalError("call stack empty".to_string())),
         }
     }
 
