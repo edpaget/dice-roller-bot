@@ -10,7 +10,10 @@ use nom::{
     IResult,
 };
 
-use crate::types::{Expression, Op, Parser, Statement};
+use crate::{
+    error::RollerError,
+    types::{Expression, Op, Parser, Statement},
+};
 
 // Parser Grammer
 //
@@ -212,11 +215,11 @@ fn command(input: &str) -> IResult<&str, Statement> {
 #[derive(Default, Debug, Clone, PartialEq)]
 pub struct StatementParser;
 
-impl Parser<()> for StatementParser {
-    fn parse(&self, input: &str) -> Result<Statement, ()> {
+impl Parser<RollerError> for StatementParser {
+    fn parse(&self, input: &str) -> Result<Statement, RollerError> {
         match command(input) {
             Ok((_, stmt)) => Ok(stmt),
-            Err(_) => Err(()),
+            Err(err) => Err(RollerError::ParserError(format!("{}", err))),
         }
     }
 }
@@ -391,6 +394,17 @@ mod tests {
                 )]
             },
         );
+    }
+
+    #[test]
+    fn test_template_call() {
+        assert_eq!(
+            dice_roll_template_call("{test}(10)").unwrap().1,
+            Expression::DiceRollTemplateCall {
+                template_expression: Box::new(Expression::Variable("test".to_string())),
+                args: vec![Expression::Integer(10),],
+            }
+        )
     }
 
     #[test]
