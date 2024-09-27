@@ -10,4 +10,4 @@ mod eval;
 mod parser;
 mod types;
 
-rust_i18n::i18n!("locales");
+rust_i18n::i18n!("../locales");

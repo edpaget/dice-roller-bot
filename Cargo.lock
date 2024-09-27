@@ -700,23 +700,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dice_roller"
-version = "0.1.0"
-dependencies = [
- "aws-config",
- "aws-sdk-dynamodb",
- "clap",
- "nom",
- "rand",
- "rust-i18n",
- "rustyline",
- "serde",
- "serde_dynamo",
- "serenity",
- "tokio",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1591,6 +1574,41 @@ dependencies = [
  "spin",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "roller_discord"
+version = "0.1.0"
+dependencies = [
+ "roller_lang",
+ "serenity",
+ "tokio",
+]
+
+[[package]]
+name = "roller_lang"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "nom",
+ "rand",
+ "rust-i18n",
+ "rustyline",
+ "serde",
+ "serde_dynamo",
+ "serenity",
+ "tokio",
+]
+
+[[package]]
+name = "roller_repl"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "roller_lang",
+ "rustyline",
+ "tokio",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
 FROM alpine
-COPY /target/x86_64-unknown-linux-musl/release/discord-roller .
+COPY /target/x86_64-unknown-linux-musl/release/roller_discord .
 USER 1000
-CMD ["./discord-roller"]
+CMD ["./roller_discord"]
