@@ -1,5 +1,3 @@
-extern crate dice_roller;
-
 use clap::Parser;
 use rustyline::Result;
 
@@ -28,17 +26,17 @@ fn main() {
 
 #[tokio::main]
 async fn repl_with_db() -> Result<()> {
-    let ddb_client = dice_roller::dynamodb::DDBClient::with_default_table(
-        dice_roller::dynamodb::make_client(true)
+    let ddb_client = roller_lang::dynamodb::DDBClient::with_default_table(
+        roller_lang::dynamodb::make_client(true)
             .await
             .expect("failed to start dynamo client"),
     );
-    let mut repl = dice_roller::repl::REPL::new(ddb_client);
-    dice_roller::readline::init(&mut repl).await
+    let mut repl = roller_lang::repl::REPL::new(ddb_client);
+    roller_lang::readline::init(&mut repl).await
 }
 
 #[tokio::main]
 async fn std_repl() -> Result<()> {
-    let mut repl = dice_roller::repl::REPL::default();
-    dice_roller::readline::init(&mut repl).await
+    let mut repl = roller_lang::repl::REPL::default();
+    roller_lang::readline::init(&mut repl).await
 }

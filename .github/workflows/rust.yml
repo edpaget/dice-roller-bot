@@ -4,14 +4,24 @@ on:
   push:
     branches: [ main ]
     paths:
-      - src/**/*.rs
+      - roller_lang/**/*.rs
+      - roller_discord/**/*.rs
+      - roller_repl/**/*.rs
+      - roller_lang/Cargo.toml
+      - roller_discord/Cargo.toml
+      - roller_repl/Cargo.toml
       - locales/app.yml
       - Cargo.toml
       - Cargo.lock
   pull_request:
     branches: [ main ]
     paths:
-      - src/**/*.rs
+      - roller_lang/**/*.rs
+      - roller_discord/**/*.rs
+      - roller_repl/**/*.rs
+      - roller_lang/Cargo.toml
+      - roller_discord/Cargo.toml
+      - roller_repl/Cargo.toml
       - locales/app.yml
       - Cargo.toml
       - Cargo.lock

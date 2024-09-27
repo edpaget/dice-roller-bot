@@ -1,5 +1,3 @@
-extern crate dice_roller;
-
 use std::env;
 
 use serenity::prelude::{Client as SerenityClient, GatewayIntents};
@@ -12,7 +10,7 @@ pub async fn main() {
         | GatewayIntents::MESSAGE_CONTENT;
 
     let mut client = SerenityClient::builder(&token, intents)
-        .event_handler(dice_roller::discord::Handler)
+        .event_handler(roller_lang::discord::Handler)
         .await
         .expect("Err creating client");
 

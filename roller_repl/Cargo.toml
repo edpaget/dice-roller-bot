@@ -1,0 +1,10 @@
+[package]
+name = "roller_repl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.18", features = ["derive"] }
+roller_lang = { path = "../roller_lang" }
+tokio = { version = "1.26", features = ["full", "macros", "rt-multi-thread"] }
+rustyline = "14.0.0"
