@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 aws-config = "1.5.6"
-aws-sdk-dynamodb = "1.47.0"
+aws-sdk-dynamodb = "1.48.0"
 nom = "7"
 rand = { version = "0.8.5", features = ["std_rng"] }
 rust-i18n = "3.1.2"
