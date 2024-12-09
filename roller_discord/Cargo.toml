@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
-tokio = { version = "1.26", features = ["full", "macros", "rt-multi-thread"] }
+tokio = { version = "1.42", features = ["full", "macros", "rt-multi-thread"] }
 roller_lang = { path = "../roller_lang" }
