@@ -1,3 +1,5 @@
+use std::env;
+
 use serenity::{
     async_trait,
     model::{channel::Message, gateway::Ready},
@@ -5,15 +7,14 @@ use serenity::{
 };
 
 use crate::{
-    dynamodb::{make_client, DDBClient},
-    environments::dynamodb_environment::DynamoDBEnvironment,
+    environments::hash_map_environment::HashMapEnvironment,
     repl::{REPLContext, REPL},
 };
 
 pub struct Handler;
 
-impl TypeMapKey for REPL<DynamoDBEnvironment> {
-    type Value = REPL<DynamoDBEnvironment>;
+impl TypeMapKey for REPL<HashMapEnvironment> {
+    type Value = REPL<HashMapEnvironment>;
 }
 
 #[async_trait]
@@ -24,8 +25,8 @@ impl EventHandler for Handler {
         }
 
         let mut data = ctx.data.write().await;
-        let repl = data.get_mut::<REPL<DynamoDBEnvironment>>().unwrap();
-        let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name);
+        let repl = data.get_mut::<REPL<HashMapEnvironment>>().unwrap();
+        let repl_ctx = &REPLContext::new(msg.channel_id.to_string(), msg.author.name.clone());
         let response = match repl.exec(repl_ctx, &msg.content).await {
             Ok(eval_result) => format!("{}\n", eval_result),
             Err(err) => {
@@ -40,11 +41,12 @@ impl EventHandler for Handler {
 
     async fn ready(&self, ctx: Context, ready: Ready) {
         let mut data = ctx.data.write().await;
-        let ddb_client = DDBClient::with_default_table(
-            make_client(false).await.expect("cannot start DDB client"),
-        );
-        let repl = REPL::new(ddb_client);
-        data.insert::<REPL<DynamoDBEnvironment>>(repl);
+        let repl = REPL::<HashMapEnvironment>::default();
+        data.insert::<REPL<HashMapEnvironment>>(repl);
         println!("{} is connected!", ready.user.name);
+
+        if env::var("USE_DYNAMODB").is_ok() {
+            println!("Warning: USE_DYNAMODB is set but DynamoDB support is disabled in this build");
+        }
     }
 }
