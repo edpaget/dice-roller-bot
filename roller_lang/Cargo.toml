@@ -7,7 +7,7 @@ edition = "2021"
 aws-config = "1.5.7"
 aws-sdk-dynamodb = "1.47.0"
 nom = "7"
-rand = { version = "0.8.5", features = ["std_rng"] }
+rand = { version = "0.9.2", features = ["std_rng"] }
 rust-i18n = "3.1.2"
 rustyline = "14.0.0"
 serde = { version = "1.0.216", features = ["derive"] }
