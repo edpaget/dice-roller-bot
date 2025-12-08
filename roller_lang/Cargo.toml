@@ -13,4 +13,4 @@ rustyline = "14.0.0"
 serde = { version = "1.0.216", features = ["derive"] }
 serde_dynamo = { version = "4.2.14", features = ["aws-sdk-dynamodb+1"] }
 serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
-tokio = { version = "1.26", features = ["full", "macros", "rt-multi-thread"] }
+tokio = { version = "1.42", features = ["full", "macros", "rt-multi-thread"] }
