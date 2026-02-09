@@ -54,7 +54,7 @@ jobs:
     - uses: Swatinem/rust-cache@v2
       with:
         shared-key: "dice-roller"
-    - uses: hoverkraft-tech/compose-action@v2.0.2
+    - uses: hoverkraft-tech/compose-action@v2.5.0
     - name: Run tests
       run: cargo test --verbose
 
