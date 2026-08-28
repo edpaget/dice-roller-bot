@@ -1,3 +1,23 @@
+# The image tags this workflow publishes are a cross-repository contract.
+#
+# `edpaget/cloudcitydotgay` runs Flux image automation against this image, and
+# its `apps/image-automation/dice-roller/image-policy.yaml` selects a version by
+# filtering the GHCR tag list with, verbatim:
+#
+#     filterTags:
+#       pattern: '^main-[a-f0-9]+-(?P<ts>[0-9]+)$'
+#       extract: '$ts'
+#     policy:
+#       numerical:
+#         order: asc
+#
+# So the `<branch>-<sha>-<unix_ts>` tag built below is load-bearing: `main`
+# builds must match that pattern, and the timestamp must be monotonic across
+# builds because the largest extracted integer wins. A mismatch fails silently
+# green — this workflow still succeeds, and the ImagePolicy simply goes
+# `Ready=False` with "version list argument cannot be empty" in another repo's
+# cluster. Change the tag shape only together with that file.
+
 name: Build and Push
 
 permissions:
@@ -53,8 +73,14 @@ jobs:
           REGISTRY: ghcr.io
           IMAGE_NAME: ${{ github.repository }}
           SHA_TAG: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
+          BRANCH_TAG="${REF_NAME//[^a-zA-Z0-9._-]/-}"
+          SORTABLE_TAG="${BRANCH_TAG}-${SHA_TAG}-$(date -u +%s)"
           docker build \
-            -t $REGISTRY/$IMAGE_NAME:$SHA_TAG \
-            -t $REGISTRY/$IMAGE_NAME:latest .
-          docker push $REGISTRY/$IMAGE_NAME --all-tags
+            -t "$REGISTRY/$IMAGE_NAME:$SHA_TAG" \
+            -t "$REGISTRY/$IMAGE_NAME:$SORTABLE_TAG" \
+            -t "$REGISTRY/$IMAGE_NAME:latest" .
+          docker push "$REGISTRY/$IMAGE_NAME" --all-tags
+          echo "Published \`$SORTABLE_TAG\`" >> "$GITHUB_STEP_SUMMARY"
